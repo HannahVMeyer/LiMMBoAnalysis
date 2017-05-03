@@ -4,11 +4,11 @@
 
 library("wesanderson")
 library("ggplot2")
+library("reshape2")
 
 library ("grid")
 library("gridExtra")
 library("gplots")
-library("reshape2")
 library("StatMatch")
 library(dplyr)
 
@@ -85,6 +85,8 @@ t_bs <- do.call(rbind, lapply(bootstrapdir, function(x) {
     }))
 
 t_bs$traits <- factor(t_bs$traits, levels=seq(10,100,10))
+saveRDS(t_bs, paste(rootdir, "/t_bs.rds", sep=""))
+
 
 
 ProctimeBootstraps_mean <- melt(acast(t_bs,  population ~ h2, 
@@ -97,6 +99,9 @@ ProctimeBootstraps_stats <- cbind(ProctimeBootstraps_mean,
 colnames(ProctimeBootstraps_stats) <- c("popStructure", "h2", "mean", "sd")
 ProctimeBootstraps_stats$popStructure <- 
     sapply(as.character(ProctimeBootstraps_stats$popStructure), switchPop)
+
+saveRDS(ProctimeBootstraps_stats, paste(rootdir, "/ProctimeBootstrapsStats.rds",
+                                      sep=""))
 
 pdf(file=paste(rootdir, "/proctimeBootstraps_stats.pdf", sep=""), onefile=TRUE, 
     height=12,width=16, paper =   "a4r")
@@ -150,6 +155,7 @@ t_combined_bs$traits <- factor(t_combined_bs$traits, levels=seq(10,100,10))
 t_combined_bs$popStructure <- sapply(as.character(t_combined_bs$popStructure), 
                                      switchPop)
 t_combined_bs$setup <- "LiMMBo"
+saveRDS(t_combined_bs, paste(rootdir, "/t_combined_bs.rds", sep=""))
 
 # closed form process times
 t_closedform <- do.call(rbind, lapply(closedformdir, function(x) {
@@ -176,8 +182,10 @@ t_closedform$traits <- factor(t_closedform$traits, levels=seq(10,100,10))
 t_closedform$setup <- "RML"
 t_closedform$popStructure <- sapply(as.character(t_closedform$popStructure), 
                                     switchPop)
+saveRDS(t_closedform, paste(rootdir, "/t_closedform.rds", sep=""))
 
 proctimeComparison <- rbind(t_combined_bs[,-c(1:2)], t_closedform)
+saveRDS(proctimeComparison, paste(rootdir, "/proctimeComparison.rds", sep=""))
 
 pdf(file=paste(rootdir, "/proctimeBootstrap_stats.pdf", sep=""), onefile=TRUE, 
     height=12,width=16, paper =   "a4r")
