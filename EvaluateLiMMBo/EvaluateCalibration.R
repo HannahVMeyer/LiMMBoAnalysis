@@ -5,8 +5,9 @@
 library("data.table")
 library("ggplot2")
 library("wesanderson")
-library("dplyr")
 library("plyr")
+library("dplyr")
+
 library("reshape2") # melt, acast
 
 
@@ -56,6 +57,28 @@ calibrationAcrossChromosomes <- function(gwas, directory, estimateString, K,
     
     }
 }
+
+qq <- function(data, title=NULL, 
+              xlabel=expression(Expected~~-log[10](italic(p))), 
+              ylabel= expression(Observed~~-log[10](italic(p))), facet=FALSE) {
+    p <- ggplot(data=data, aes(x=-log10(expected), y=-log10(observed)))
+    p <- p + geom_point(aes(color=traits , shape=analysis)) +
+        geom_abline(intercept=0,slope=1, col="black") +
+        geom_hline(aes(yintercept=-log10(5e-8))) +
+        xlim(c(0,max(data$expected))) +
+        ylim(c(0,max(data$observed))) +
+        xlab(xlabel) +
+        ylab(ylabel) +
+        #labs(title=title, x=xlabel, y=ylabel) + 
+        theme_bw()
+    if (facet) {
+        p <- p + facet_grid( h2 ~ kinship)
+    }
+    p
+}
+
+
+
 
 ############
 ### data ### 
@@ -169,10 +192,78 @@ calibrationSummary$alpha <- factor(calibrationSummary$alpha,
 saveRDS(calibrationSummary, paste(resultdir, "/calibrationSummary.rds", sep=""))
 saveRDS(calibrationPvalues, paste(resultdir, "/calibrationPvalues.rds", sep=""))
 
+calibrationSummary <- readRDS(paste(resultdir, "/calibrationSummary.rds", 
+                                    sep=""))
+calibrationPvalues <- readRDS(paste(resultdir, "/calibrationPvalues.rds", 
+                                    sep=""))
+analysis <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\1", 
+                 names(calibrationPvalues))
+traits <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\2", 
+               names(calibrationPvalues))
+h2 <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\3", 
+           names(calibrationPvalues))
+kinship <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\4_\\5", 
+                names(calibrationPvalues))
+
+calibrationPvaluesOrdered <- apply(calibrationPvalues, 2, 
+                                   function(x) x[order(x)] )
+expected <- ppoints(nrow(calibrationPvaluesOrdered))
+
+subset=30000
+calibrationPvalues <- melt(calibrationPvaluesOrdered[1:subset,], 
+                           value.name="observed")
+calibrationPvalues$analysis <- rep(analysis, each=subset)
+calibrationPvalues$traits <- rep(traits, each=subset)
+calibrationPvalues$h2 <-rep(h2, each=subset)
+calibrationPvalues$kinship <- rep(kinship, each=subset)
+calibrationPvalues$expected <- expected[1:subset]
+
+xlabel=expression(Expected~~-log[10](italic(p))) 
+ylabel= expression(Observed~~-log[10](italic(p)))
+
 axistext <- 16
 axistitle <- 16
 legendtext <- 16
 legendtitle <- 16
+
+png(file=paste(resultdir, "/calibrationSummary.png", sep=""),  height=1000, 
+    width=800)
+p <- ggplot(data=calibrationPvalues, aes(x=-log10(expected), 
+                                         y=-log10(observed)))
+p + geom_point(aes(color=factor(traits, levels=seq(10,100,10)), 
+                   shape=as.factor(analysis)),
+               size=1) +
+    facet_grid(h2 ~ kinship) + 
+    scale_color_manual(values=wes_palette(n=10, 
+                                          name="Moonrise2", 
+                                          type='continuous'),
+                       name="Traits") +
+    scale_shape(name="Model") +
+    geom_abline(intercept=0, slope=1, col="black") +
+    xlab(xlabel) +
+    ylab(ylabel) +
+    #labs(title=title, x=xlabel, y=ylabel) + 
+    theme_bw() +
+    theme(axis.text.x = element_text(colour="black", size=axistext, angle=0,
+                                     hjust=.5, vjust=.5, face="plain"),
+          axis.text.y = element_text(colour="black", size=axistext, angle=0,
+                                     hjust=0.5, vjust=0.5, face="plain"),  
+          axis.title.x = element_text(colour="black", size=axistitle, angle=0,
+                                      hjust=.5, vjust=0, face="plain"),
+          axis.title.y = element_text(colour="black", size=axistitle, angle=90,
+                                      hjust=.5, vjust=.5, face="plain"),          
+          strip.text = element_text(colour="black", size=legendtext, angle=0,
+                                    hjust=.5, vjust=.5, face="plain"),
+          strip.background = element_rect(fill = "white"),
+          legend.text = element_text(colour="black", size=legendtext, angle=0,
+                                     hjust=1, vjust=0, face="plain"),
+          legend.title= element_text(colour="black", size=legendtitle, angle=0,
+                                     hjust=1, vjust=0, face="plain"),
+          legend.key = element_rect(colour = NA)) 
+dev.off()
+
+
+
 
 pdf(file=paste(resultdir, "/calibrationSummary.pdf", sep=""),  height=12, 
     width=12)
