@@ -4,6 +4,8 @@
 library("data.table")
 library("GenomicRanges")
 library("plyr")
+library("pvclust")
+source("~/GWAS/analysis/general/pvclustHM.R")
 
 filterLD <- function(fac, snp, ld, sigSNP, p_original, multitrait=FALSE) {
     if (multitrait) {
@@ -68,27 +70,26 @@ ld$ID <- gsub("\\d*_chr0?(\\d{1,2})_(\\d*)_.*", "chr\\1:\\2",ld$SNP)
 
 pany <- fread(paste(directory, "/GWAS/pvalues_lmm_any.csv", sep=""), sep=",", 
               data.table=FALSE)
-pany_ldfiltered <- do.call(rbind, lapply(seq_along(1:nrow(pany)), function(snp) 
-    filterLD(snp=snp, ld=ld, p_original=pany)))
-pany_ldfiltered <- pany_ldfiltered[!duplicated(pany_ldfiltered$SNP),]
-
-
 colnames(pany) <- c("ID", "P")
 pany$SNP <- ld$SNP
 pany$CHR <- as.numeric(gsub("chr(\\d{1,2}):(\\d*)", "\\1", pany$ID))
 pany$BP <- as.numeric(gsub("chr(\\d{1,2}):(\\d*)", "\\2", pany$ID))
 pany$TYPE <- 'multitrait'
 
+pany_ldfiltered <- do.call(rbind, lapply(seq_along(1:nrow(pany)), function(snp) 
+    filterLD(snp=snp, ld=ld, p_original=pany)))
+pany_ldfiltered <- pany_ldfiltered[!duplicated(pany_ldfiltered$SNP),]
+
+
 bany <- fread(paste(directory, "/GWAS/betas_lmm_any.csv", sep=""), sep=",", 
               data.table=FALSE)
-bany$SNP <- ld$SNP
+colnames(bany)[1] <- "SNP"
+bany$ID <- ld$SNP
 
 ################
 ### analysis ###
 ################
 
-
-# GO enrichment for significant SNPs #
 ## get yeast annotation and store as GRanges and gtf
 ### make granges
 yeastgenes <- fread(paste(directory, 
@@ -117,14 +118,30 @@ overlaps <- findOverlaps(grYeast,grSnpsGWAS)
 rsid <- CharacterList(split(names(grSnpsGWAS)[subjectHits(overlaps)], 
                             queryHits(overlaps)))
 mcols(snpsGWASGenes) <- DataFrame(mcols(snpsGWASGenes), rsid)
-snpsGWASGenes.df <- as.data.frame(snpsGWASGenes)
+snpsGWASGenes.df <- data.frame(snpsGWASGenes, stringsAsFactors=FALSE)
 snpsGWASGenes.df$rsid <- sapply(snpsGWASGenes.df$rsid, paste, collapse=",")
+snpsGWASGenes.df$seqnames <- as.character(snpsGWASGenes.df$seqnames)
+snpsGWASGenes.df$strand <- as.character(snpsGWASGenes.df$strand)
+
 write.table(snpsGWASGenes.df, file=
                 paste(directory, "/GOenrichment/ReferenceGWASGenes.txt",sep=""),
             col.names=FALSE, row.names=FALSE, quote=FALSE, sep="\t")
 
+ID2Genes <- apply(as.matrix(snpsGWASGenes.df), 1, function(x) {
+    ids <- unlist(strsplit( x[9], ","))
+    df <- expandRows(as.data.frame(t(x)), length(ids), count.is.col = FALSE)
+    df$SNP <- ids
+    return(df)
+})
+ID2Genes <- do.call(rbind, ID2Genes)
+beta_map <- merge(ID2Genes, bany, by.x=10, by.y=1)
+pbeta_map <- merge(beta_map, pany[,1:2], by=1)
+
+
+
 # effect size analysis
 ## Remove all non-significant SNPs 
+pbeta_map_sig <- pbeta_map[pbeta_map$P < fdr_single,]
 bany_ldfiltered <- bany[which(bany[,1] %in% pany_ldfiltered[,1]),]
 bany_sig <- bany_ldfiltered[pany_ldfiltered$P < fdr_single,]
 
@@ -132,6 +149,74 @@ bany_sig <- bany_ldfiltered[pany_ldfiltered$P < fdr_single,]
 bany_sig_abs <- abs(bany_sig[,-c(1,43)])
 rownames(bany_sig_abs) <-  as.character(bany_sig[,1])
 
+## pvclust
+## cluster and determine stability of clusters with pvclust
+#method.dist <- "euclidean"
+method.dist <- "correlation"
+
+### for traits
+pbeta_map_traits_pv <- pvclust(pbeta_map_sig[,11:51], nboot=50000, iseed=10, 
+                          method.dist=method.dist)
+saveRDS(pbeta_map_traits_pv, paste(directory, "/GWAS/",  
+                              strftime(Sys.time(), "%Y%m%d"), 
+                              "pbeta_map_traits_pv_", 
+                              method.dist, ".rds", sep=""))
+
+### for SNPs 
+pbeta_map_snps_pv <- pvclust(t(pbeta_map_sig[,11:51]), nboot=10000, iseed=10, 
+                               method.dist=method.dist)
+saveRDS(pbeta_map_traits_pv, paste(directory, "/GWAS/",  
+                                   strftime(Sys.time(), "%Y%m%d"), 
+                                   "pbeta_map_traits_pv_", 
+                                   method.dist, ".rds", sep=""))
+
+
+bany_snps_pv <- pvclust(t(bany_sig_abs), nboot=10000, iseed=10, 
+                        method.dist=method.dist)
+#tmp <- tt[match(bany_snps_pv[[1]]$labels,tt[,1]),]
+#bany_snps_pv[[1]]$labels <- tmp[,2]
+saveRDS(bany_snps_pv, paste(directory, "/GWAS/", strftime(Sys.time(), "%Y%m%d"), 
+                            "bany_snps_pv_", method.dist, ".rds", sep=""))
+
+pvclustPlot(bany_snps_pv, print.bp=FALSE, print.edge=TRUE, labels=FALSE, 
+            col.pv=wes_palette(4, name="Moonrise2", type='continuous')[2])
+pvclustRect(bany_snps_pv, highestEdge = 395)
+bany_snps_clusters <- pvclustPick(bany_snps_pv, highestEdge = 395)
+
+pvclustPlot(bany_traits_pv, print.bp=FALSE, print.edge=TRUE,
+            col.pv=wes_palette(4, name="Moonrise2", type='continuous')[2])
+pvclustRect(bany_traits_pv, max.only=FALSE)
+pvclustPlot(pbeta_map_traits_pv, print.bp=FALSE, print.edge=TRUE,
+            col.pv=wes_palette(4, name="Moonrise2", type='continuous')[2])
+pvclustRect(pbeta_map_traits_pv, max.only=FALSE)
+bany_traits_clusters <- pvclustPick(bany_traits_pv,  max.only=FALSE)
+
+# get absolute value of effect sizes and order according to cluster order
+bany_sig_abs <- t(apply(bany_sig[,-c(1,43)], 1, function(s) abs(s)))
+bany_sig_abs_order <- bany_sig_abs_snp[bany_snps_pv$hclust$order,
+                                       bany_traits_pv$hclust$order]
+bany_sig_abs_order.m <- melt(data.frame(SNP=snp, BETA=bany_sig_abs_order))
+
+
+## Ewan's script
+beta = read.table("~/GWAS/data/LiMMBo/feasabilityBootstrap/yeast/beta_cleaned.txt",header = TRUE)
+snp2gene = read.table("~/GWAS/data/LiMMBo/feasabilityBootstrap/yeast/snp2gene.txt",header = TRUE)
+
+beta_gene = merge(beta,snp2gene, by.x = "snp", by.y = "snp")
+beta_gene$count_01 = apply(beta_gene[,5:41],1,function(x){ sum(abs(x) > 0.01)})
+                  
+innermat = as.matrix(beta_gene[beta_gene$count_01 > 0,5:41])
+hc = hclust(as.dist(1 - cor(t(innermat))), method = "average")
+cc = hclust(as.dist(1 - cor((innermat))), method = "average")
+heatmap(innermat, Colv = as.dendrogram(cc), Rowv = as.dendrogram(hc), 
+        scale = "none", 
+        labRow = beta_gene[beta_gene$count_01 > 0,]$sym, 
+        cexRow = 0.15)
+innermat_traits_pv <- pvclust(innermat, nboot=10000, iseed=10, 
+                               method.dist=method.dist)
+pvclustPlot(innermat_traits_pv, print.bp=FALSE, print.edge=TRUE,
+            col.pv=wes_palette(4, name="Moonrise2", type='continuous')[2])
+pvclustRect(innermat_traits_pv, max.only=FALSE)
 ## SNP with notable effect sizes across several traits
 snps_across_traits <- sapply(c(0.5, 1, 1.5, 2), function(threshold) {
     apply(bany_sig_abs, 1, function(snp, thr) {
