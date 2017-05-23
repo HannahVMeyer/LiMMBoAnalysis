@@ -7,7 +7,6 @@ library("ggplot2")
 library("wesanderson")
 library("plyr")
 library("dplyr")
-
 library("reshape2") # melt, acast
 
 
@@ -58,28 +57,6 @@ calibrationAcrossChromosomes <- function(gwas, directory, estimateString, K,
     }
 }
 
-qq <- function(data, title=NULL, 
-              xlabel=expression(Expected~~-log[10](italic(p))), 
-              ylabel= expression(Observed~~-log[10](italic(p))), facet=FALSE) {
-    p <- ggplot(data=data, aes(x=-log10(expected), y=-log10(observed)))
-    p <- p + geom_point(aes(color=traits , shape=analysis)) +
-        geom_abline(intercept=0,slope=1, col="black") +
-        geom_hline(aes(yintercept=-log10(5e-8))) +
-        xlim(c(0,max(data$expected))) +
-        ylim(c(0,max(data$observed))) +
-        xlab(xlabel) +
-        ylab(ylabel) +
-        #labs(title=title, x=xlabel, y=ylabel) + 
-        theme_bw()
-    if (facet) {
-        p <- p + facet_grid( h2 ~ kinship)
-    }
-    p
-}
-
-
-
-
 ############
 ### data ### 
 ############
@@ -99,149 +76,167 @@ alpha <- c(5e-5, 5e-6, 5e-7, 5e-8)
 ################
 ### analysis ### 
 ################
-
-calibrationH2 <- lapply(genVariance, function(h2) {
-    calibrationKinship <- lapply(kinship, function(K) {
-        calibrationTraits <- lapply(Traits, function(P) {
-            if (P==10) sampling <- 5
-            if (P>10) sampling <- 10
-            
-            alpha <- c(5e-5, 5e-6, 5e-7, 5e-8)
-
-            directory=paste(dirroot, h2, "_model", model, "/", K, "/nrtraits", 
-                            P, "/estimateVD/nrtraits_samples", sampling, 
-                            sep="")
-            cal <- lapply(c("lm_mt_pcs", "lmm_mt"), 
-                          calibrationAcrossChromosomes, directory=directory,  
-                          estimateString="", K=K, P=P)
-            missing <- sapply(cal, function(m) {
-                if (all(is.na(m[[3]]))) return(NA)
-                else paste(m[[3]][!is.na(m[[3]])], collapse=", ")
-            })
-            tmp_summary <- data.frame(alpha=alpha, lm=cal[[1]][[1]], 
-                              lmm=cal[[2]][[1]],
-                              P=rep(P, length(alpha)), 
-                              h2=rep(h2, length(alpha)),
-                              model=rep(model, length(alpha)),  
-                              kinship=rep(K, length(alpha)), 
-                              estimate=rep("LiMMBo", length(alpha)), 
-                              missing_lm=rep(missing[1], length(alpha)), 
-                              missing_lmm=rep(missing[2], length(alpha)),
-                              stringsAsFactors=FALSE)
-
-            tmp_pvalues <- data.frame(lm=cal[[1]][[4]], lmm=cal[[2]][[4]])
-            if (K == "relatedEU_nopopstructure") {
-                names(tmp_pvalues) <- paste(names(tmp_pvalues), "_", P, "_", h2, 
-                                        "_", K, sep="")
-            }
-            
-            if (P <= 30 ) {
+if (! file.exist(paste(resultdir, "/calibrationSummary.rds", sep=""))) {
+    calibrationH2 <- lapply(genVariance, function(h2) {
+        calibrationKinship <- lapply(kinship, function(K) {
+            calibrationTraits <- lapply(Traits, function(P) {
+                if (P==10) sampling <- 5
+                if (P>10) sampling <- 10
+                
+                alpha <- c(5e-5, 5e-6, 5e-7, 5e-8)
+    
                 directory=paste(dirroot, h2, "_model", model, "/", K, 
-                                "/nrtraits", P, "/closedForm",  sep="")
-                cal_closedForm <- 
-                    calibrationAcrossChromosomes("lmm_mt", directory=directory,
-                                                 estimateString="_closedForm", 
-                                                 K=K, P=P)
-                if (all(is.na(cal_closedForm[[3]]))) {
-                    missing <- NA
-                } else {
-                    missing <- 
-                        paste(cal_closedForm[[3]][!is.na(cal_closedForm[[3]])],
-                              collapse=", ")
+                                "/nrtraits", P, "/estimateVD/nrtraits_samples", 
+                                sampling, sep="")
+                cal <- lapply(c("lm_mt_pcs", "lmm_mt"), 
+                              calibrationAcrossChromosomes, directory=directory,  
+                              estimateString="", K=K, P=P)
+                missing <- sapply(cal, function(m) {
+                    if (all(is.na(m[[3]]))) return(NA)
+                    else paste(m[[3]][!is.na(m[[3]])], collapse=", ")
+                })
+                tmp_summary <- data.frame(alpha=alpha, lm=cal[[1]][[1]], 
+                                  lmm=cal[[2]][[1]],
+                                  P=rep(P, length(alpha)), 
+                                  h2=rep(h2, length(alpha)),
+                                  model=rep(model, length(alpha)),  
+                                  kinship=rep(K, length(alpha)), 
+                                  estimate=rep("LiMMBo", length(alpha)), 
+                                  missing_lm=rep(missing[1], length(alpha)), 
+                                  missing_lmm=rep(missing[2], length(alpha)),
+                                  stringsAsFactors=FALSE)
+    
+                tmp_pvalues <- data.frame(lm=cal[[1]][[4]], lmm=cal[[2]][[4]])
+                if (K == "relatedEU_nopopstructure") {
+                    names(tmp_pvalues) <- paste(names(tmp_pvalues), "_", P, "_", 
+                                                h2, "_", K, sep="")
                 }
-                tmp_closedForm <- data.frame(alpha=alpha, 
-                                             lm=rep(NA, length(alpha)), 
-                                             lmm=cal_closedForm[[1]], 
-                                             P=rep(P, length(alpha)), 
-                                             h2=rep(h2, length(alpha)), 
-                                             model=rep(model, length(alpha)),  
-                                             kinship=rep(K, length(alpha)), 
-                                             estimate=rep("RML", 
-                                                          length(alpha)), 
-                                             missing_lm=rep(missing[1], 
-                                                               length(alpha)), 
-                                             missing_lmm=rep(missing[3], 
-                                                             length(alpha)),
-                                            stringsAsFactors=FALSE)
-                tmp_summary <- rbind(tmp_summary, tmp_closedForm)
-            } 
-           tmp <- list(tmp_summary, tmp_pvalues)
-           #names(tmp) <- paste("Traits", Traits, sep="")
-           return(tmp)
+                
+                if (P <= 30 ) {
+                    directory=paste(dirroot, h2, "_model", model, "/", K, 
+                                    "/nrtraits", P, "/closedForm",  sep="")
+                    cal_closedForm <- 
+                        calibrationAcrossChromosomes("lmm_mt", 
+                                                     directory=directory,
+                                                     estimateString=
+                                                         "_closedForm", 
+                                                     K=K, P=P)
+                    if (all(is.na(cal_closedForm[[3]]))) {
+                        missing <- NA
+                    } else {
+                        missing <- 
+                            paste(cal_closedForm[[3]][!is.na(
+                                cal_closedForm[[3]])],
+                                  collapse=", ")
+                    }
+                    tmp_closedForm <- data.frame(alpha=alpha, 
+                                                 lm=rep(NA, length(alpha)), 
+                                                 lmm=cal_closedForm[[1]], 
+                                                 P=rep(P, length(alpha)), 
+                                                 h2=rep(h2, length(alpha)), 
+                                                 model=rep(model,length(alpha)),  
+                                                 kinship=rep(K, length(alpha)), 
+                                                 estimate=rep("RML", 
+                                                              length(alpha)), 
+                                                 missing_lm=rep(missing[1], 
+                                                                 length(alpha)), 
+                                                 missing_lmm=rep(missing[3], 
+                                                                 length(alpha)),
+                                                stringsAsFactors=FALSE)
+                    tmp_summary <- rbind(tmp_summary, tmp_closedForm)
+                } 
+               tmp <- list(tmp_summary, tmp_pvalues)
+               return(tmp)
+            })
+            cal_summary <- ldply(calibrationTraits, function(x) x[[1]])
+            cal_pvalues <- do.call(cbind, lapply(calibrationTraits, 
+                                                 function(x) x[[2]]))
+            tmp <- list(cal_summary, cal_pvalues)
+            return(tmp)
         })
-        cal_summary <- ldply(calibrationTraits, function(x) x[[1]])
-        cal_pvalues <- do.call(cbind, lapply(calibrationTraits, 
-                                             function(x) x[[2]]))
+        cal_summary <- ldply(calibrationKinship, function(x) x[[1]])
+        cal_pvalues <- lapply(calibrationKinship, function(x) x[[2]])
+        cal_pvalues <- cal_pvalues[sapply(cal_pvalues, 
+                                          function(x) dim(x)[1] != 0)]
+        cal_pvalues <- do.call(cbind, cal_pvalues)
         tmp <- list(cal_summary, cal_pvalues)
-        #names(tmp) <- kinship
         return(tmp)
     })
-    cal_summary <- ldply(calibrationKinship, function(x) x[[1]])
-    cal_pvalues <- lapply(calibrationKinship, function(x) x[[2]])
-    cal_pvalues <- cal_pvalues[sapply(cal_pvalues, function(x) dim(x)[1] != 0)]
-    cal_pvalues <- do.call(cbind, cal_pvalues)
-    tmp <- list(cal_summary, cal_pvalues)
-    #names(tmp) <- paste("h2_", genVariance, sep="")
-    return(tmp)
-})
 
-calibrationSummary <- ldply(calibrationH2, function(x) x[[1]])
-calibrationPvalues <- do.call(cbind, lapply(calibrationH2, function(x) x[[2]]))
-calibrationSummary$alpha <- factor(calibrationSummary$alpha, 
-                                  level=c(5e-5, 5e-6, 5e-7, 5e-8))
-calibrationSummary$kinship <- factor(gsub("EU", "",calibrationSummary$kinship), 
-                                   level= kinship, 
-                                   labels= gsub("_", "~", kinship))
-calibrationSummary$h2 <- factor(calibrationSummary$h2, 
-                                levels=unique(calibrationSummary$h2),
-                                labels=paste("h[2]:", 
-                                             unique(calibrationSummary$h2)))
-saveRDS(calibrationSummary, paste(resultdir, "/calibrationSummary.rds", sep=""))
-saveRDS(calibrationPvalues, paste(resultdir, "/calibrationPvalues.rds", sep=""))
+    calibrationSummary <- ldply(calibrationH2, function(x) x[[1]])
+    calibrationSummary$alpha <- factor(calibrationSummary$alpha, 
+                                      level=c(5e-5, 5e-6, 5e-7, 5e-8))
+    calibrationSummary$kinship <- factor(gsub("EU", "",
+                                              calibrationSummary$kinship), 
+                                       level= kinship, 
+                                       labels= gsub("_", "~", kinship))
+    calibrationSummary$h2 <- factor(calibrationSummary$h2, 
+                                    levels=unique(calibrationSummary$h2),
+                                    labels=paste("h[2]:", 
+                                                 unique(calibrationSummary$h2)))
+    saveRDS(calibrationSummary, paste(resultdir, "/calibrationSummary.rds", 
+                                      sep=""))
+    
+    calibrationPvalues <- do.call(cbind, lapply(calibrationH2, 
+                                                function(x) x[[2]]))
+    saveRDS(calibrationPvalues, paste(resultdir, "/calibrationPvalues.rds", 
+                                      sep=""))
+} else {
+    calibrationSummary <- readRDS(paste(resultdir, "/calibrationSummary.rds", 
+                                        sep=""))
+    if (!file.exists(paste(resultdir, "/calibrationPvaluesOrderedMelt.rds", 
+                           sep=""))) {
+        if (!file.exists(paste(resultdir, "/calibrationPvaluesOrdered.rds", 
+                               sep=""))) {
+            calibrationPvalues <- readRDS(paste(resultdir, 
+                                                "/calibrationPvalues.rds", 
+                                                sep=""))
+            analysis <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", 
+                             "\\1", names(calibrationPvalues))
+            traits <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", 
+                           "\\2", names(calibrationPvalues))
+            h2 <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\3", 
+                       names(calibrationPvalues))
+            kinship <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", 
+                            "\\4_\\5", 
+                            names(calibrationPvalues))
+            
+            calibrationPvaluesOrdered <- apply(calibrationPvalues, 2, 
+                                               function(x) x[order(x)] )
+            saveRDS(calibrationPvaluesOrdered, 
+                    paste(resultdir, "/calibrationPvaluesOrdered.rds", sep=""))
+        } else {
+            calibrationPvaluesOrdered <- readRDS(
+                paste(resultdir, "/calibrationPvaluesOrdered.rds", sep=""))
+        }
+        expected <- ppoints(nrow(calibrationPvaluesOrdered))
+        subset=nrow(calibrationPvaluesOrdered)
+        calibrationPvalues <- melt(calibrationPvaluesOrdered, 
+                                   value.name="observed")
+        calibrationPvalues$analysis <- rep(analysis, each=subset)
+        calibrationPvalues$traits <- rep(traits, each=subset)
+        calibrationPvalues$h2 <-rep(h2, each=subset)
+        calibrationPvalues$kinship <- rep(kinship, each=subset)
+        calibrationPvalues$expected <- expected[1:subset]
+        calibrationPvalues$kinship <- factor(calibrationPvalues$kinship, 
+                                             level= kinship, 
+                                             labels= gsub("_", "~", kinship))
+        calibrationPvalues$h2 <- factor(calibrationPvalues$h2, 
+                                        levels=unique(calibrationPvalues$h2),
+                                        labels=paste("h[2]:", 
+                                                unique(calibrationPvalues$h2)))
+        
+        saveRDS(calibrationPvalues, paste(resultdir, 
+                                          "/calibrationPvaluesOrderedMelt.rds", 
+                                          sep=""))
+    } else {
+        calibrationPvalues <- readRDS(paste(resultdir, 
+              "/calibrationPvaluesOrderedMelt.rds", 
+              sep=""))
+    }
+}
 
-calibrationSummary <- readRDS(paste(resultdir, "/calibrationSummary.rds", 
-                                    sep=""))
-calibrationPvalues <- readRDS(paste(resultdir, "/calibrationPvalues.rds", 
-                                    sep=""))
-analysis <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\1", 
-                 names(calibrationPvalues))
-traits <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\2", 
-               names(calibrationPvalues))
-h2 <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\3", 
-           names(calibrationPvalues))
-kinship <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\4_\\5", 
-                names(calibrationPvalues))
-
-calibrationPvaluesOrdered <- apply(calibrationPvalues, 2, 
-                                   function(x) x[order(x)] )
-saveRDS(calibrationPvaluesOrdered, paste(resultdir, 
-                                         "/calibrationPvaluesOrdered.rds", 
-                                         sep=""))
-calibrationPvaluesOrdered <- readRDS(paste(resultdir, 
-                                           "/calibrationPvaluesOrdered.rds", 
-                                    sep=""))
-expected <- ppoints(nrow(calibrationPvaluesOrdered))
-
-subset=nrow(calibrationPvaluesOrdered)
-calibrationPvalues <- melt(calibrationPvaluesOrdered, 
-                           value.name="observed")
-calibrationPvalues$analysis <- rep(analysis, each=subset)
-calibrationPvalues$traits <- rep(traits, each=subset)
-calibrationPvalues$h2 <-rep(h2, each=subset)
-calibrationPvalues$kinship <- rep(kinship, each=subset)
-calibrationPvalues$expected <- expected[1:subset]
-
-saveRDS(calibrationPvalues, paste(resultdir, 
-                                         "/calibrationPvaluesOrderedMelt.rds", 
-                                         sep=""))
-calibrationPvalues$kinship <- factor(calibrationPvalues$kinship, 
-                                   level= kinship, 
-                                   labels= gsub("_", "~", kinship))
-calibrationPvalues$h2 <- factor(calibrationPvalues$h2, 
-                                levels=unique(calibrationPvalues$h2),
-                                labels=paste("h[2]:", 
-                                             unique(calibrationPvalues$h2)))
-
+# plotting parameters
 xlabel=expression(Expected~~-log[10](italic(p))) 
 ylabel= expression(Observed~~-log[10](italic(p)))
 
@@ -250,7 +245,11 @@ axistitle <- 18
 legendtext <- 18
 legendtitle <- 18
 striptext <- 20
-filter(calibrationPvalues, traits %in% c(10,50,100))
+
+# Filter for subset of traits
+calibrationPvalues <- filter(calibrationPvalues, traits %in% c(10,50,100))
+
+# qq plot of lmm and lm for related samples
 png(file=paste(resultdir, "/calibrationSummaryQQ.png", sep=""),  height=1000, 
     width=1000)
 
@@ -268,7 +267,6 @@ p + geom_point(aes(color=factor(traits, levels=c(10, 50, 100)),
     geom_abline(intercept=0, slope=1, col="black") +
     xlab(xlabel) +
     ylab(ylabel) +
-    #labs(title=title, x=xlabel, y=ylabel) + 
     theme_bw() +
     theme(axis.text.x = element_text(colour="black", size=axistext, angle=0,
                                      hjust=.5, vjust=.5, face="plain"),
@@ -288,15 +286,14 @@ p + geom_point(aes(color=factor(traits, levels=c(10, 50, 100)),
           legend.key = element_rect(colour = NA)) 
 dev.off()
 
-
-
+# bar plot of FDR estimates for LM for realted samples, unrelated samples with
+# and without population structure
 
 png(file=paste(resultdir, "/calibrationSummaryPerModelLM.png", sep=""), 
     height=1000, width=1000)
 p <- ggplot(filter(calibrationSummary, 
                    estimate == "LiMMBo", 
                    P %in% c(10,50,100)),
-                   #alpha %in% c(5e-5, 5e-8)), 
             aes(x=as.factor(P), y=-log10(lm)))
 p +  geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5], 
                 linetype="dashed") +
@@ -331,7 +328,8 @@ p +  geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5],
           legend.key = element_rect(colour = NA))
 dev.off()
 
-
+# boxplot of FDR estimates for LMM with covariannce matrices derived from 
+# RML or limmbo across all cohorts
 pdf(file=paste(resultdir, "/calibrationSummary_closedForm.pdf", sep=""), 
     height=12, width=12)
 p <- ggplot(filter(calibrationSummary, 
@@ -340,7 +338,6 @@ p <- ggplot(filter(calibrationSummary,
                                                     y=-log10(lmm)))
 p + geom_boxplot(position=position_dodge(width=1), 
                  aes(fill=alpha, alpha=estimate)) +
-    #facet_grid(kinship ~ h2) +
     scale_fill_manual(values = moonrise[c(5:8)], name="FDR threshold") +
 	scale_alpha_manual(values = c(0.4, 0.8), name="VD method") + 
     labs(x = "Number of traits", y = expression(-log[10](FDR))) +
