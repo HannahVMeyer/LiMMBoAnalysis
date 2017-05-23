@@ -189,6 +189,13 @@ calibrationSummary <- ldply(calibrationH2, function(x) x[[1]])
 calibrationPvalues <- do.call(cbind, lapply(calibrationH2, function(x) x[[2]]))
 calibrationSummary$alpha <- factor(calibrationSummary$alpha, 
                                   level=c(5e-5, 5e-6, 5e-7, 5e-8))
+calibrationSummary$kinship <- factor(gsub("EU", "",calibrationSummary$kinship), 
+                                   level= kinship, 
+                                   labels= gsub("_", "~", kinship))
+calibrationSummary$h2 <- factor(calibrationSummary$h2, 
+                                levels=unique(calibrationSummary$h2),
+                                labels=paste("h[2]:", 
+                                             unique(calibrationSummary$h2)))
 saveRDS(calibrationSummary, paste(resultdir, "/calibrationSummary.rds", sep=""))
 saveRDS(calibrationPvalues, paste(resultdir, "/calibrationPvalues.rds", sep=""))
 
@@ -246,6 +253,7 @@ striptext <- 20
 filter(calibrationPvalues, traits %in% c(10,50,100))
 png(file=paste(resultdir, "/calibrationSummaryQQ.png", sep=""),  height=1000, 
     width=1000)
+
 p <- ggplot(data=calibrationPvalues, aes(x=-log10(expected), 
                                          y=-log10(observed)))
 p + geom_point(aes(color=factor(traits, levels=c(10, 50, 100)), 
@@ -283,72 +291,46 @@ dev.off()
 
 
 
-pdf(file=paste(resultdir, "/calibrationSummaryLM.pdf", sep=""),  height=12, 
-    width=12)
+png(file=paste(resultdir, "/calibrationSummaryPerModelLM.png", sep=""), 
+    height=1000, width=1000)
 p <- ggplot(filter(calibrationSummary, 
-                   estimate == "LiMMBo",
+                   estimate == "LiMMBo", 
                    P %in% c(10,50,100)),
+                   #alpha %in% c(5e-5, 5e-8)), 
             aes(x=as.factor(P), y=-log10(lm)))
-p + geom_bar(stat = "identity", position="dodge",aes(fill=alpha), alpha=0.8) + 
-    facet_grid(h2 ~ kinship) +
-    scale_fill_manual(values = moonrise[5:8]) +
-    labs(x = "Number of traits", y = expression(-log[10](FDR)), title="LM") +
- 	geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5]) +
- 	geom_hline(yintercept = -log10(alpha[4]), colour = moonrise[6]) +
-    theme_bw() +
-    theme(strip.text.x = element_text(size = 8))
-dev.off()
-
-p <- ggplot(filter(calibrationSummary, 
-                   estimate =="LiMMBo", 
-                   alpha %in% c(5e-5, 5e-8)), 
-            aes(x=as.factor(P), y=-log10(lm_pc)))
-p + geom_bar(stat = "identity", position="dodge",aes(fill=alpha), alpha=0.8) +
-    facet_grid(kinship ~ h2) +
-    scale_fill_manual(values = moonrise[5:8]) +
-    labs(x = "Number of traits", y = expression(-log[10](FDR)), 
-         title="LM with PCs") +
- 	geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5]) +
- 	geom_hline(yintercept = -log10(alpha[4]), colour = moonrise[6]) +
-    theme_bw() +
-    theme(strip.text.x = element_text(size = 8))
-
-p <- ggplot(filter(calibrationSummary, 
-                   estimate =="LiMMBo", 
-                   alpha %in% c(5e-5, 5e-8)), 
-            aes(x=as.factor(P), y=-log10(lmm)))
-p + geom_bar(stat = "identity", position="dodge",aes(fill=alpha), alpha=0.8) +
-    facet_grid(kinship ~ h2) +
-    scale_fill_manual(values = moonrise[5:8]) +
-    labs(x = "Number of traits", y = expression(-log[10](FDR)), title="LMM") +
- 	geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5]) +
- 	geom_hline(yintercept = -log10(alpha[4]), colour = moonrise[6]) +
-    theme_bw() +
-    theme(strip.text.x = element_text(size = 8))
-dev.off()
-
-calibrationBgOnly.m <- melt(calibrationBgOnly[,1:9], 
-                            measure.vars=c("LM", "LMM", "sLM"),
-                            value.name="fdr",
-                            variable.name="analysis")
-col <- wes_palette(n=8, name="Moonrise2", type = 'continuous')
-
-pdf(file=paste(resultdir, "/calibrationBGOnly_combined.pdf", sep=""), 
-    height=12, width=12)
-p <- ggplot(filter(calibrationBgOnly.m, estimate == "LiMMBo",
-                   alpha %in% c(5e-8),
-                   analysis != "sLM"), 
-            aes(x=as.factor(P), y=-log10(fdr)))
-
-p + geom_bar(stat = "identity", position="dodge", aes(fill=analysis), 
-             alpha=0.8) + 
-    facet_grid(kinship ~ h2) +
-    scale_fill_manual(values = col[c(1,5)], name="Model") +
+p +  geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5], 
+                linetype="dashed") +
+    geom_hline(yintercept = -log10(alpha[2]), colour = moonrise[6],  
+               linetype="dashed") +
+    geom_hline(yintercept = -log10(alpha[3]), colour = moonrise[7],  
+               linetype="dashed") +
+    geom_hline(yintercept = -log10(alpha[4]), colour = moonrise[8],  
+               linetype="dashed") +
+    geom_bar(stat = "identity", position="dodge", aes(fill=alpha), alpha=0.8) + 
+    facet_grid( h2 ~ kinship, labeller=label_parsed) +
+    scale_fill_manual(values = moonrise[5:8], name="FDR") +
     labs(x = "Number of traits", y = expression(-log[10](FDR))) +
-    geom_hline(yintercept = -log10(alpha[4]), colour = moonrise[6]) +
     theme_bw() +
-    theme(strip.text.x = element_text(size = 8))
+    theme(axis.text.x = element_text(colour="black", size=axistext, angle=0,
+                                     hjust=.5, vjust=.5, face="plain"),
+          axis.text.y = element_text(colour="black", size=axistext, angle=0,
+                                     hjust=0.5, vjust=0.5, face="plain"),  
+          axis.title.x = element_text(colour="black", size=axistitle, angle=0,
+                                      hjust=.5, vjust=0, face="plain"),
+          axis.title.y = element_text(colour="black", size=axistitle, angle=90,
+                                      hjust=.5, vjust=.5, face="plain"),          
+          strip.text.x = element_text(colour="black", size=striptext.x, angle=0,
+                                    hjust=.5, vjust=.5, face="plain"),
+          strip.text.y = element_text(colour="black", size=striptext.y,
+                                    hjust=.5, vjust=.5, face="plain"),
+          strip.background = element_rect(fill = "white"),
+          legend.text = element_text(colour="black", size=legendtext, angle=0,
+                                     hjust=1, vjust=0, face="plain"),
+          legend.title= element_text(colour="black", size=legendtitle, angle=0,
+                                     hjust=1, vjust=0, face="plain"),
+          legend.key = element_rect(colour = NA))
 dev.off()
+
 
 pdf(file=paste(resultdir, "/calibrationSummary_closedForm.pdf", sep=""), 
     height=12, width=12)
@@ -356,7 +338,8 @@ p <- ggplot(filter(calibrationSummary,
                    P <= 30,
                    alpha %in% c(5e-5, 5e-8)), aes(x=as.factor(P), 
                                                     y=-log10(lmm)))
-p + geom_boxplot(position=position_dodge(width=1), aes(fill=alpha, alpha=estimate)) +
+p + geom_boxplot(position=position_dodge(width=1), 
+                 aes(fill=alpha, alpha=estimate)) +
     #facet_grid(kinship ~ h2) +
     scale_fill_manual(values = moonrise[c(5:8)], name="FDR threshold") +
 	scale_alpha_manual(values = c(0.4, 0.8), name="VD method") + 
@@ -369,12 +352,18 @@ p + geom_boxplot(position=position_dodge(width=1), aes(fill=alpha, alpha=estimat
                                                          alpha=c(0.4,0.8)),
                                                 colour=NA))) +
     theme_bw() +
-    theme(axis.text.x = element_text(colour="black",size=axistext,angle=0,hjust=.5,vjust=.5,face="plain"),
-          axis.text.y = element_text(colour="black",size=axistext,angle=0,hjust=0.5,vjust=0.5,face="plain"),  
-          axis.title.x = element_text(colour="black",size=axistitle,angle=0,hjust=.5,vjust=0,face="plain"),
-          axis.title.y = element_text(colour="black",size=axistitle,angle=90,hjust=.5,vjust=.5,face="plain"),
-          legend.text = element_text(colour="black",size=legendtext,angle=0,hjust=1,vjust=0,face="plain"),
-          legend.title= element_text(colour="black",size=legendtitle,angle=0,hjust=1,vjust=0,face="plain"),
+    theme(axis.text.x = element_text(colour="black",size=axistext,angle=0,
+                                     hjust=.5,vjust=.5,face="plain"),
+          axis.text.y = element_text(colour="black",size=axistext,angle=0,
+                                     hjust=0.5,vjust=0.5,face="plain"),  
+          axis.title.x = element_text(colour="black",size=axistitle,angle=0,
+                                      hjust=.5,vjust=0,face="plain"),
+          axis.title.y = element_text(colour="black",size=axistitle,angle=90,
+                                      hjust=.5,vjust=.5,face="plain"),
+          legend.text = element_text(colour="black",size=legendtext,angle=0,
+                                     hjust=1,vjust=0,face="plain"),
+          legend.title= element_text(colour="black",size=legendtitle,angle=0,
+                                     hjust=1,vjust=0,face="plain"),
           legend.key = element_rect(colour = NA)) 
 dev.off()
 
