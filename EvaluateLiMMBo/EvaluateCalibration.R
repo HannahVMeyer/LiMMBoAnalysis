@@ -207,10 +207,16 @@ kinship <- gsub("([lmm]{2,3})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\4_\\5",
 
 calibrationPvaluesOrdered <- apply(calibrationPvalues, 2, 
                                    function(x) x[order(x)] )
+saveRDS(calibrationPvaluesOrdered, paste(resultdir, 
+                                         "/calibrationPvaluesOrdered.rds", 
+                                         sep=""))
+calibrationPvaluesOrdered <- readRDS(paste(resultdir, 
+                                           "/calibrationPvaluesOrdered.rds", 
+                                    sep=""))
 expected <- ppoints(nrow(calibrationPvaluesOrdered))
 
-subset=30000
-calibrationPvalues <- melt(calibrationPvaluesOrdered[1:subset,], 
+subset=nrow(calibrationPvaluesOrdered)
+calibrationPvalues <- melt(calibrationPvaluesOrdered, 
                            value.name="observed")
 calibrationPvalues$analysis <- rep(analysis, each=subset)
 calibrationPvalues$traits <- rep(traits, each=subset)
@@ -218,25 +224,37 @@ calibrationPvalues$h2 <-rep(h2, each=subset)
 calibrationPvalues$kinship <- rep(kinship, each=subset)
 calibrationPvalues$expected <- expected[1:subset]
 
+saveRDS(calibrationPvalues, paste(resultdir, 
+                                         "/calibrationPvaluesOrderedMelt.rds", 
+                                         sep=""))
+calibrationPvalues$kinship <- factor(calibrationPvalues$kinship, 
+                                   level= kinship, 
+                                   labels= gsub("_", "~", kinship))
+calibrationPvalues$h2 <- factor(calibrationPvalues$h2, 
+                                levels=unique(calibrationPvalues$h2),
+                                labels=paste("h[2]:", 
+                                             unique(calibrationPvalues$h2)))
+
 xlabel=expression(Expected~~-log[10](italic(p))) 
 ylabel= expression(Observed~~-log[10](italic(p)))
 
-axistext <- 16
-axistitle <- 16
-legendtext <- 16
-legendtitle <- 16
-
-png(file=paste(resultdir, "/calibrationSummary.png", sep=""),  height=1000, 
-    width=800)
+axistext <- 18
+axistitle <- 18
+legendtext <- 18
+legendtitle <- 18
+striptext <- 20
+filter(calibrationPvalues, traits %in% c(10,50,100))
+png(file=paste(resultdir, "/calibrationSummaryQQ.png", sep=""),  height=1000, 
+    width=1000)
 p <- ggplot(data=calibrationPvalues, aes(x=-log10(expected), 
                                          y=-log10(observed)))
-p + geom_point(aes(color=factor(traits, levels=seq(10,100,10)), 
+p + geom_point(aes(color=factor(traits, levels=c(10, 50, 100)), 
                    shape=as.factor(analysis)),
-               size=1) +
-    facet_grid(h2 ~ kinship) + 
-    scale_color_manual(values=wes_palette(n=10, 
-                                          name="Moonrise2", 
-                                          type='continuous'),
+               size=3) +
+    facet_grid(h2 ~ kinship, labeller=label_parsed) + 
+    scale_color_manual(values=wes_palette(n=5, 
+                                          name="Darjeeling", 
+                                          type='continuous')[c(2,3,5)],
                        name="Traits") +
     scale_shape(name="Model") +
     geom_abline(intercept=0, slope=1, col="black") +
@@ -252,7 +270,7 @@ p + geom_point(aes(color=factor(traits, levels=seq(10,100,10)),
                                       hjust=.5, vjust=0, face="plain"),
           axis.title.y = element_text(colour="black", size=axistitle, angle=90,
                                       hjust=.5, vjust=.5, face="plain"),          
-          strip.text = element_text(colour="black", size=legendtext, angle=0,
+          strip.text = element_text(colour="black", size=striptext, angle=0,
                                     hjust=.5, vjust=.5, face="plain"),
           strip.background = element_rect(fill = "white"),
           legend.text = element_text(colour="black", size=legendtext, angle=0,
@@ -265,20 +283,21 @@ dev.off()
 
 
 
-pdf(file=paste(resultdir, "/calibrationSummary.pdf", sep=""),  height=12, 
+pdf(file=paste(resultdir, "/calibrationSummaryLM.pdf", sep=""),  height=12, 
     width=12)
 p <- ggplot(filter(calibrationSummary, 
-                   estimate == "LiMMBo", 
-                   alpha %in% c(5e-5, 5e-8)), 
+                   estimate == "LiMMBo",
+                   P %in% c(10,50,100)),
             aes(x=as.factor(P), y=-log10(lm)))
 p + geom_bar(stat = "identity", position="dodge",aes(fill=alpha), alpha=0.8) + 
-    facet_grid(kinship ~ h2) +
+    facet_grid(h2 ~ kinship) +
     scale_fill_manual(values = moonrise[5:8]) +
     labs(x = "Number of traits", y = expression(-log[10](FDR)), title="LM") +
  	geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5]) +
  	geom_hline(yintercept = -log10(alpha[4]), colour = moonrise[6]) +
     theme_bw() +
     theme(strip.text.x = element_text(size = 8))
+dev.off()
 
 p <- ggplot(filter(calibrationSummary, 
                    estimate =="LiMMBo", 
