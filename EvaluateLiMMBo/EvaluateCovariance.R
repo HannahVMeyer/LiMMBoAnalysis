@@ -26,26 +26,37 @@ SimilarityCovariance <- function(trueDirectory, fitDirectory, mtSetDirectory,
 
     trueCg <- fread(trueCg_file, data.table=FALSE, stringsAsFactors=FALSE)
     trueCn <- fread(trueCn_file, data.table=FALSE, stringsAsFactors=FALSE)
+    uniqueElements <- length(trueCg[lower.tri(as.matrix(trueCg), diag=TRUE)])
     
     fitCg <- fread(fitCg_file, data.table=FALSE, stringsAsFactors=FALSE)
     fitCn <- fread(fitCn_file, data.table=FALSE, stringsAsFactors=FALSE)
-    rssCg_fit <- sum((trueCg - fitCg)^2)
-    rssCn_fit <- sum((trueCn - fitCn)^2)
+    rssCg_fit <- sum((trueCg[lower.tri(as.matrix(trueCg), diag=TRUE)] - 
+					  fitCg[lower.tri(as.matrix(fitCg), diag=TRUE)])^2)
+    rssCn_fit <-  sum((trueCn[lower.tri(as.matrix(trueCn), diag=TRUE)] -
+                      fitCn[lower.tri(as.matrix(fitCn), diag=TRUE)])^2)
+    rmseCg_fit <- sqrt(rssCg_fit/uniqueElements)
+    rmseCn_fit <- sqrt(rssCn_fit/uniqueElements) 
     if (file.exists(mtSetCg_file)) {
         mtSetCg <- fread(mtSetCg_file, data.table=FALSE, 
                          stringsAsFactors=FALSE)
         mtSetCn <- fread(mtSetCn_file, data.table=FALSE, 
                          stringsAsFactors=FALSE)
-        rssCg_mtSet <- sum((trueCg - mtSetCg)^2)
-        rssCn_mtSet <- sum((trueCn - mtSetCn)^2)
+    	rssCg_mtSet <- sum((trueCg[lower.tri(as.matrix(trueCg), diag=TRUE)] - 
+					  mtSetCg[lower.tri(as.matrix(mtSetCg), diag=TRUE)])^2)
+    	rssCn_mtSet <-  sum((trueCn[lower.tri(as.matrix(trueCn), diag=TRUE)] -
+                      mtSetCn[lower.tri(as.matrix(mtSetCn), diag=TRUE)])^2)
+    	rmseCg_mtSet <- sqrt(rssCg_mtSet/uniqueElements)
+    	rmseCn_mtSet <- sqrt(rssCn_mtSet/uniqueElements)
+                      
     } else {
         rssCg_mtSet <- NA
         rssCn_mtSet <- NA
+        rmseCg_mtSet <- NA
+        rmseCn_mtSet <- NA
     }
-    return(c(rssCg_fit, rssCn_fit, rssCg_mtSet, rssCn_mtSet))
+    return(c(rssCg_fit, rssCn_fit, rssCg_mtSet, rssCn_mtSet, 
+             rmseCg_fit, rmseCn_fit, rmseCg_mtSet, rmseCn_mtSet))
 }
-
-
 
 ############
 ### data ### 
@@ -57,9 +68,9 @@ genVariance <- c(0.2, 0.5, 0.8)
 model <- "noiseBgOnlygeneticBgOnly"
 kinship <- c("unrelatedEU_popstructure", "unrelatedEU_nopopstructure", 
              "relatedEU_nopopstructure")
-dirroot <- "~/GWAS/data/LiMMBo/Calibration/samples1000_NrSNP20_Cg"
-resultdir <- "~/GWAS/data/LiMMBo/Calibration"
-simulationdir <- "~/GWAS/data/LiMMBo/simulateData/phenotypes"
+dirroot <- "~/GWAS/data/LiMMBo/CalibrationOld/samples1000_NrSNP20_Cg"
+resultdir <- "~/GWAS/data/LiMMBo/CalibrationOld"
+simulationdir <- "~/GWAS/data/LiMMBo/simulateDataOld/phenotypes"
 Traits <- seq(10,100,10)
 
 alpha <- c(5e-5, 5e-6, 5e-7, 5e-8)
@@ -85,14 +96,16 @@ covarianceH2 <- lapply(genVariance, function(h2) {
                                   "/nrtraits", P, "/closedForm", sep="") 
             setupString <- paste("samples", N, "_traits", P, "_NrSNP", NrSNPs,
                                  "_Cg", h2, "_model", model, sep="")
-            rss <- SimilarityCovariance(trueDirectory, fitDirectory, 
+            ss <- SimilarityCovariance(trueDirectory, fitDirectory, 
                                         mtSetDirectory, seedLiMMBo, 
                                         setupString)
             
-            rss_summary <- data.frame(rssCg_fit =rss[1], rssCn_fit=rss[2], 
-                                      rssCg_mtSet =rss[3], rssCn_mtSet=rss[4],
-                                      P=P, h2=h2, model=model, kinship=K, 
-                                      stringsAsFactors=FALSE)
+            summary <- data.frame(rssCg_LiMMBo =ss[1], rssCn_LiMMBo=ss[2],
+                                  rssCg_RML = ss[3], rssCn_RML=ss[4], 
+                                  rmseCg_LiMMBo =ss[5], rmseCn_LiMMBo=ss[6],
+                                  rmseCg_RML=ss[7], rmseCn_RML=ss[8],
+                                  P=P, h2=h2, model=model, kinship=K, 
+                                  stringsAsFactors=FALSE)
         })
         covarianceTraits <- do.call(rbind, covarianceTraits)
     })
@@ -102,10 +115,19 @@ covarianceH2 <- lapply(genVariance, function(h2) {
 covarianceSummary <- do.call(rbind, covarianceH2)
 covarianceSummary <- melt(covarianceSummary, 
                           id.vars=c("kinship", "h2", "P", "model"),
-                          measured.vars=c("rssCg_fit", "rssCn_fit", 
-                                          "rssCg_mtSet", "rssCn_mtSet"),
-                          value.name="RSS",
+                          measured.vars=c("rssCg_LiMMbo", "rssCn_LiMMBo", 
+                                          "rssCg_RML", "rssCn_RML",
+                                          "rmseCg_LiMMbo", "rmseCn_LiMMBo",
+                                          "rmseCg_RML", "rmseCn_RML"),
+                          value.name="SS",
                           variable.name="type")
+covarianceSummary$component <- gsub("[rmse]{3,4}(C.*)_.*", "\\1", 
+                                    covarianceSummary$type)
+covarianceSummary$measure <- gsub("([rmse]{3,4})C.*_.*", "\\1", 
+                                    covarianceSummary$type)
+covarianceSummary$analysis <- gsub(".*_", "", covarianceSummary$type)
+covarianceSummary$type <- gsub("[rmse]{3,4}", "", covarianceSummary$type)
+covarianceSummary <- covarianceSummary[!is.na(covarianceSummary$SS),]
 saveRDS(covarianceSummary, paste(resultdir, "/covarianceSummary.rds", sep=""))
 
 axistext <- 18
