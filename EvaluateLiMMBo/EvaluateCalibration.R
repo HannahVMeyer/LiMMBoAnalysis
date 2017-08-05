@@ -111,7 +111,11 @@ formatPValues <- function(cal) {
 					names(cal))
 
 	calOrdered <- apply(cal, 2, function(x) x[order(x)])
-	expected <- ppoints(nrow(calOrdered))
+    S <- nrow(calOrdered)
+    ci <- 0.95
+	expected <- ppoints(S)
+    clower   <- -log10(qbeta(ci,     1:S, S - 1:S + 1))
+    cupper   <- -log10(qbeta(1 - ci, 1:S, S - 1:S + 1))
 
 	cal <- melt(calOrdered, value.name="observed")[,-1]
 	names(cal)[1] <- "type"
@@ -120,6 +124,8 @@ formatPValues <- function(cal) {
 	cal$h2 <-rep(h2, each=nrow(calOrdered))
 	cal$kinship <- rep(kinship, each=nrow(calOrdered))
 	cal$expected <- expected
+    cal$clower <- clower
+    cal$cupper <- cupper
 	
 	cal$h2 <- factor(cal$h2, labels=paste("h[2]:", unique(cal$h2)))
 	cal$traits <- factor(cal$traits, labels=paste("Traits:", 
@@ -139,8 +145,6 @@ kinship <- c("unrelatedEU_popstructure", "unrelatedEU_nopopstructure",
              "relatedEU_nopopstructure")
 dirroot <- "~/GWAS/data/LiMMBo/CalibrationOld/samples1000_NrSNP20_Cg"
 resultdir <- "~/GWAS/data/LiMMBo/CalibrationOld"
-#Traits <- seq(10,100,10)
-Traits <- seq(10, 50, 10)
 
 alpha <- c(5e-5, 5e-6, 5e-7, 5e-8)
 
@@ -240,7 +244,7 @@ saveRDS(calibrationLM, paste(resultdir,
 
 calibrationPvalues <- rbind(calibrationLiMMBo[[1]], calibrationRML[[3]])
 saveRDS(calibrationPvalues, paste(resultdir,
-                                    "/calibrationPvaluesLMMrelatedNoPopstructure.rds", sep=""))
+                    "/calibrationPvaluesLMMrelatedNoPopstructure.rds", sep=""))
 calibrationPvalues <- filter(cal, observed < 0.001)
 
 xlabel=expression(Expected~~-log[10](italic(p))) 
@@ -252,15 +256,17 @@ legendtext <- 8
 legendtitle <- 8
 striptext <- 8
 
-limits <- c(0, -log10(min(calibrationPvalues$expected, 
-							calibrationPvalues$observed)))
+limits <- c(0, -log10(min(c(calibrationPvalues$expected, 
+							calibrationPvalues$observed))))
 
 png(file=paste(resultdir, "/calibrationSummaryQQAll.png", sep=""),  
     height=4, width=5.2, units="in", res=450)
 
 p <- ggplot(data=calibrationPvalues, aes(x=-log10(expected), 
                                          y=-log10(observed)))
-p + geom_segment(aes(x = 0, y = 0, xend = limits[2],
+p + #geom_ribbon(aes(x=-log10(expected), ymin=clower, ymax=cupper),
+    #                                                 fill="gray70") +
+    geom_segment(aes(x = 0, y = 0, xend = limits[2],
                          yend = limits[2]),
                          color="gray10") +
     geom_point(aes(color=as.factor(analysis)),
@@ -292,23 +298,26 @@ p + geom_segment(aes(x = 0, y = 0, xend = limits[2],
           legend.key = element_rect(colour = NA)) 
 dev.off()
 
-traitString <- paste("Traits: 10", "Traits: 50", "Traits: 100")
 
-calibrationPvaluesCompare <- rbind(filter(calibrationLiMMBo[[1]],
+calibrationPvaluesCompare <- rbind(dplyr::filter(calibrationLiMMBo[[1]],
 										  as.numeric(h2) == 3, 
                                           as.numeric(traits) == 5),
-									filter(calibrationLM[[1]],
+									dplyr::filter(calibrationLM[[1]],
 										  as.numeric(h2) == 3, 
                                           as.numeric(traits) == 3),
-                                    filter(calibrationLM[[2]],
+                                    dplyr::filter(calibrationLM[[2]],
 										  as.numeric(h2) == 3, 
                                           as.numeric(traits) == 3),
-                                    filter(calibrationLM[[3]],
+                                    dplyr::filter(calibrationLM[[3]],
 										  as.numeric(h2) == 3, 
                                           as.numeric(traits) == 3 ))
-calibrationPvaluesCompare <- filter(calibrationPvaluesCompare, 
-							as.numeric(h2) == 3, 	
-							observed < 0.0001)
+saveRDS(calibrationPvaluesCompare, paste(resultdir,
+                                    "/calibrationPvaluesLMvsLMM.rds", sep=""))
+calibrationPvaluesCompare$analysis <- factor(calibrationPvaluesCompare$analysis,
+                                            levels = c("LM", "LiMMBo"))
+
+limits <- c(0, -log10(min(c(calibrationPvaluesCompare$expected, 
+							calibrationPvaluesCompare$observed))))
 
 
 png(file=paste(resultdir, "/calibrationSummaryQQLMMvsLM.png", sep=""),
@@ -319,7 +328,7 @@ p <- ggplot(data=calibrationPvaluesCompare, aes(x=-log10(expected),
 p + geom_segment(aes(x = 0, y = 0, xend = limits[2],
                          yend = limits[2]),
                          color="gray10") +
-    geom_point(aes(color=as.factor(analysis), shape=as.factor(kinship)),
+    geom_point(aes(color=analysis, shape=as.factor(kinship)),
                size=1) +
     coord_fixed(ylim=limits, xlim=limits) + 
     scale_shape_manual(values=c(0,1,2), name="Kinship") +
