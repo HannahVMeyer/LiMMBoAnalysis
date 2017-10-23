@@ -1,3 +1,15 @@
+###################################################################
+###                                                             ###
+### Evaluate covariance estimates of REML and LiMMBo compared   ###
+### to true covariance matrices							        ###
+###                                                             ###
+### Data generated via setupLiMMBo/runtime.sh                   ###
+###                                                             ###
+### Generates Figure 3A, (publication)                          ###
+###           Figure 4.3 (thesis)                               ###
+###                                                             ###
+###################################################################
+
 ###############################
 ### Libraries and Functions ###
 ###############################
@@ -69,24 +81,32 @@ SimilarityCovariance <- function(trueDirectory, fitDirectory,
 ############
 ### data ### 
 ############
+
 seedLiMMBo=29348
 N=1000
 NrSNPs=20
 genVariance <- c(0.2, 0.5, 0.8)
 model <- "noiseBgOnlygeneticBgOnly"
-kinship <- c("unrelatedEU_popstructure", "unrelatedEU_nopopstructure", 
-             "relatedEU_nopopstructure")
 dirroot <- "~/GWAS/data/LiMMBo/Calibration"
-resultdir <- "~/GWAS/data/LiMMBo/CalibrationOld"
 simulationdir <- "~/GWAS/data/simulateData/Runtime/phenotypes"
 Traits <- seq(10,100,10)
 seed <- 1:10
 alpha <- c(5e-5, 5e-6, 5e-7, 5e-8)
 K="relatedEU_nopopstructure"
 
+# plotting parameters
+axistext <- 12
+axistitle <- 12
+legendtext <- 12
+legendtitle <- 12
+color <- wes_palette(5, name="Darjeeling", type='continuous')[2:3]
+
 ################
 ### analysis ### 
 ################
+
+# Compare covariance estimates from REML and LiMMBo to true (known from 
+# simulation) covariance matrices
 
 covarianceH2 <- lapply(genVariance, function(h2) {
     covarianceSeed <- lapply(seed, function(S) {
@@ -135,14 +155,10 @@ covarianceSummary$measure <- gsub("([rmse]{3,4})C.*_.*", "\\1",
 covarianceSummary$analysis <- gsub(".*_", "", covarianceSummary$type)
 covarianceSummary$type <- gsub("[rmse]{3,4}", "", covarianceSummary$type)
 covarianceSummary <- covarianceSummary[!is.na(covarianceSummary$SS),]
-saveRDS(covarianceSummary, paste(resultdir, "/covarianceSummary.rds", sep=""))
+saveRDS(covarianceSummary, paste(dirroot, "/covarianceSummary.rds", sep=""))
 
-axistext <- 12
-axistitle <- 12
-legendtext <- 12
-legendtitle <- 12
-color <- wes_palette(5, name="Darjeeling", type='continuous')[2:3]
-
+## Plot root mean suqared deviation of covariance matrices 
+## Figure 3A in publication, Figure 4.3 in thesis
 p <- ggplot(filter(covarianceSummary, P %in% c(10, 20, 30, 50, 100),
                    measure == "rmse"), 
             aes(x=as.factor(P), y=SS, fill = as.factor(analysis)))
@@ -167,7 +183,7 @@ p  <- p + geom_boxplot() +
           legend.key = element_rect(colour = NA),
           legend.position = "bottom") 
 
-ggsave(plot=p, file=paste(resultdir, "/covarianceSummary.pdf", sep=""), height=4, 
+ggsave(plot=p, file=paste(dirroot, "/covarianceSummary.pdf", sep=""), height=4, 
        width=5.2, units="in")
-ggsave(plot=p, file=paste(resultdir, "/covarianceSummary.eps", sep=""), height=4, 
+ggsave(plot=p, file=paste(dirroot, "/covarianceSummary.eps", sep=""), height=4, 
        width=5.2, units="in")
