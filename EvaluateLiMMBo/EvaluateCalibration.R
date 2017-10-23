@@ -1,3 +1,15 @@
+###########################################################
+###                                                     ###
+### Evaluate calibration of genetic association studies ###
+### simple LM and multivariate LMMs with REML andLiMMBo ###
+###                                                     ###
+### Data generated with setupLiMMBo/calibration.sh      ###
+###                                                     ###
+### Generates Figure 3B, Table S4 (publication)         ###
+###           Figure 4.4, 4.5 (thesis)                  ###
+###                                                     ###
+###########################################################
+
 ###############################
 ### Libraries and Functions ###
 ###############################
@@ -10,27 +22,27 @@ library("dplyr")
 
 library("reshape2") # melt, acast
 
-
+# remove Null list entries 
 rmNulls <- function(compList) {
-                nonNulls <- compList[!sapply(compList, is.null)]
+    nonNulls <- compList[!sapply(compList, is.null)]
 }
-moonrise <- c(wes_palette(n=4, name="Moonrise1"), 
-              wes_palette(n=4, name="Moonrise2"))
 
+# Assess calibration of p-values per FWER: ratio of SNPs significant for 
+# threshold alpha divided by overall number of tests
 calibration <- function (pvalues, alpha=c( 5e-5, 5e-6, 5e-7, 5e-8)) {
     snps <- length(pvalues)
     cal <- sapply(alpha, function(a, snps) {
-                      length(which(pvalues < a))/snps
-              }, snps=snps)
+            length(which(pvalues < a))/snps
+        }, snps=snps)
     if (any(is.na(cal)))  {
         cal[is.na(cal)] <- NA
     }
     return(cal)
 }
 
+# wrapper to read in chromosome-wide GWAS results
 readData <- function(gwas, directory, K, estimateString) {
 	gwasdata <- lapply(1:22, function(chr, gwas) {
-        cat(chr, "\t", gwas, "\t",directory,"\t", K, "\n")
 		missing <- NA
 		data <- NA
 		lm_file <- paste(directory, "/", gwas, "_pvalue_chr", chr,"_", K,
@@ -47,58 +59,8 @@ readData <- function(gwas, directory, K, estimateString) {
     pvalues <- pvalues[!is.na(pvalues)]
 }
 
-
-
-
-calibrationAcrossChromosomes <- function(gwas, directory, estimateString, K, 
-                                         P) {
-    gwasdata <- lapply(1:22, function(chr, gwas) {
-        cat(chr, "\t", gwas, "\t",directory,"\t", K, "\n")
-        missing <- NA
-        data <- NA
-        lm_file <- paste(directory, "/", gwas, "_pvalue_chr", chr,"_", K, 
-                         estimateString,  ".csv", sep="")
-    
-        if(file.exists(lm_file)) {
-            data <- fread(lm_file, data.table=FALSE, stringsAsFactors=FALSE)$P
-        } else {
-            missing <- chr
-        }
-        return(list(data, missing))
-    }, gwas=gwas)
-
-    pvalues <- unlist(sapply(gwasdata, function(p) p[[1]]))
-    pvalues <- pvalues[!is.na(pvalues)]
-    missing <- unlist(sapply(gwasdata, function(p) p[[2]]))
-
-    cal_pvalues <- calibration(pvalues)
-    if (K == "relatedEU_nopopstructure" && !grepl("closed", estimateString)) {
-        return(list(cal_pvalues, length(pvalues), missing, pvalues))
-    } else {
-        return(list(cal_pvalues, length(pvalues), missing, NULL))
-    
-    }
-}
-
-qq <- function(data, title=NULL, 
-              xlabel=expression(Expected~~-log[10](italic(p))), 
-              ylabel= expression(Observed~~-log[10](italic(p))), facet=FALSE) {
-    p <- ggplot(data=data, aes(x=-log10(expected), y=-log10(observed)))
-    p <- p + geom_point(aes(color=traits , shape=analysis)) +
-        geom_abline(intercept=0,slope=1, col="black") +
-        geom_hline(aes(yintercept=-log10(5e-8))) +
-        xlim(c(0,max(data$expected))) +
-        ylim(c(0,max(data$observed))) +
-        xlab(xlabel) +
-        ylab(ylabel) +
-        #labs(title=title, x=xlabel, y=ylabel) + 
-        theme_bw()
-    if (facet) {
-        p <- p + facet_grid( h2 ~ kinship)
-    }
-    p
-}
-
+# format GWAS results: add expected pvalues and confidence intervals, transform
+# into data.frame format suitable for ggplot
 formatPValues <- function(cal) {
 	analysis <- gsub("([RMLiBo]{2,6})_(\\d{2,3})_(0\\.\\d)_(.*)EU_(.*)", "\\1",
 					 names(cal))
@@ -110,6 +72,7 @@ formatPValues <- function(cal) {
                     "\\4_\\5",
 					names(cal))
 
+    # Generate expected p-values distribution and confidence intervals
 	calOrdered <- apply(cal, 2, function(x) x[order(x)])
     S <- nrow(calOrdered)
     ci <- 0.95
@@ -148,11 +111,23 @@ resultdir <- "~/GWAS/data/LiMMBo/CalibrationOld"
 
 alpha <- c(5e-5, 5e-6, 5e-7, 5e-8)
 
+# plotting parameters
+xlabel=expression(Expected~~-log[10](italic(p))) 
+ylabel= expression(Observed~~-log[10](italic(p)))
+
+axistext <- 8
+axistitle <- 8
+legendtext <- 8
+legendtitle <- 8
+striptext <- 8
+
 ################
 ### analysis ### 
 ################
 
-calibrationRML <- lapply(kinship, function(K) {
+# Calibration of LMM (with standard REML) for all three kinship structures and 
+# moderate number of traits (10,20,30)
+calibrationREML <- lapply(kinship, function(K) {
 	calibrationH2 <- lapply(genVariance, function(h2) {
         calibrationTraits <- lapply(c(10, 20, 30), function(P) {
             
@@ -176,11 +151,12 @@ calibrationRML <- lapply(kinship, function(K) {
     cal_pvalues <- do.call(cbind, calibrationH2)	 
 })
 
-calibrationRML <- lapply(calibrationRML, formatPValues)
-saveRDS(calibrationRML, paste(resultdir, 
-									"/calibrationPvaluesRML.rds", sep=""))
+calibrationREML <- lapply(calibrationREML, formatPValues)
+saveRDS(calibrationREML, paste(resultdir, 
+									"/calibrationPvaluesREML.rds", sep=""))
 
-
+# Calibration of LiMMBo for structured populations and low- to high trait
+# numbers (10-100)
 calibrationLiMMBo <- lapply("relatedEU_nopopstructure", function(K) {
     calibrationH2 <- lapply(genVariance, function(h2) {
         calibrationTraits <- lapply(c(10,20,30,50,100), function(P) {
@@ -211,6 +187,8 @@ calibrationLiMMBo <- lapply(calibrationLiMMBo, formatPValues)
 saveRDS(calibrationLiMMBo, paste(resultdir, 
 									"/calibrationPvaluesLiMMBo.rds", sep=""))
 
+# Calibration of simple linear model for all population structures and low- to
+# high dimensional trait numbers
 calibrationLM <- lapply(kinship, function(K) {
     calibrationH2 <- lapply(genVariance, function(h2) {
         calibrationTraits <- lapply(c(10, 50, 100), function(P) {
@@ -242,19 +220,12 @@ calibrationLM <- lapply(calibrationLM, formatPValues)
 saveRDS(calibrationLM, paste(resultdir,
                                     "/calibrationPvaluesLM.rds", sep=""))
 
-calibrationPvalues <- rbind(calibrationLiMMBo[[1]], calibrationRML[[3]])
+### Combine LMM pvalues from REML and LiMMBo and depict in qq-plots
+### Figure 3B in publication, Figure 4.4 in thesis
+calibrationPvalues <- rbind(calibrationLiMMBo[[1]], calibrationREML[[3]])
 saveRDS(calibrationPvalues, paste(resultdir,
                     "/calibrationPvaluesLMMrelatedNoPopstructure.rds", sep=""))
 calibrationPvalues <- filter(cal, observed < 0.001)
-
-xlabel=expression(Expected~~-log[10](italic(p))) 
-ylabel= expression(Observed~~-log[10](italic(p)))
-
-axistext <- 8
-axistitle <- 8
-legendtext <- 8
-legendtitle <- 8
-striptext <- 8
 
 limits <- c(0, -log10(min(c(calibrationPvalues$expected, 
 							calibrationPvalues$observed))))
@@ -264,9 +235,7 @@ png(file=paste(resultdir, "/calibrationSummaryQQAll.png", sep=""),
 
 p <- ggplot(data=calibrationPvalues, aes(x=-log10(expected), 
                                          y=-log10(observed)))
-p + #geom_ribbon(aes(x=-log10(expected), ymin=clower, ymax=cupper),
-    #                                                 fill="gray70") +
-    geom_segment(aes(x = 0, y = 0, xend = limits[2],
+p + geom_segment(aes(x = 0, y = 0, xend = limits[2],
                          yend = limits[2]),
                          color="gray10") +
     geom_point(aes(color=as.factor(analysis)),
@@ -299,6 +268,8 @@ p + #geom_ribbon(aes(x=-log10(expected), ymin=clower, ymax=cupper),
 dev.off()
 
 
+### Combine pvalues from LM and LMM via LiMMBo and depict in qq-plots
+### Table S4 in publication, Figure 4.5 in thesis
 calibrationPvaluesCompare <- rbind(dplyr::filter(calibrationLiMMBo[[1]],
 										  as.numeric(h2) == 3, 
                                           as.numeric(traits) == 5),
@@ -345,7 +316,7 @@ p + geom_segment(aes(x = 0, y = 0, xend = limits[2],
           axis.text.y = element_text(colour="black", size=axistext, angle=0,
                                      hjust=0.5, vjust=0.5, face="plain"),
           axis.title.x = element_text(colour="black", size=axistitle, angle=0,
-                                      hjust=.5, vjust=0, face="plain"),
+                                      hjust=.5, vjust=0 face="plain"),
           axis.title.y = element_text(colour="black", size=axistitle, angle=90,
                                       hjust=.5, vjust=.5, face="plain"),
           strip.text = element_text(colour="black", size=striptext, angle=0,
