@@ -1,14 +1,15 @@
-###########################################################
-###                                                     ###
-### Evaluate calibration of genetic association studies ###
-### simple LM and multivariate LMMs with REML andLiMMBo ###
-###                                                     ###
-### Data generated with setupLiMMBo/calibration.sh      ###
-###                                                     ###
-### Generates Figure 3B, Table S4 (publication)         ###
-###           Figure 4.4, 4.5 (thesis)                  ###
-###                                                     ###
-###########################################################
+###################################################################
+###                                                             ###
+### Evaluate calibration of genetic association studies         ###
+### simple LM and multivariate LMMs with REML andLiMMBo         ###
+###                                                             ###
+### Data generated via setupLiMMBo/calibration_vd.sh            ###
+###                and setupLiMMBo/calibration_association.sh   ###
+###                                                             ###
+### Generates Figure 3B, Table S4 (publication)                 ###
+###           Figure 4.4, 4.5 (thesis)                          ###
+###                                                             ###
+###################################################################
 
 ###############################
 ### Libraries and Functions ###
