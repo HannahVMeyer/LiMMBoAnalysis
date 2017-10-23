@@ -9,6 +9,8 @@ library(VIM)
 library(dplyr)
 library(ggplot2)
 library(wesanderson)
+library(BaylorEdPsych) #LittleMCAR
+source("~/LiMMBo/yeast/phenotypes/corrplotHM.R")
 
 assignPrior <- function(cor_matrix, threshold) {
         corr_info <- cor_matrix
@@ -59,7 +61,11 @@ Teff <- function(test) {
 ### data ###
 ############
 
-directory <- "~/LiMMBo/yeast/phenotypes"
+#directory <- "~/LiMMBo/yeast/phenotypes"
+directory <- "~/data/LiMMBo/feasabilityBootstrap/yeast/inputdata"
+
+col=wes_palette(5, name="Darjeeling", type='continuous')[c(4,5)]
+col_corr <- colorRampPalette(col=c(col[1], "white",col[2]))(100)
 
 geno <- read.table(paste(directory, "/BYxRM_GenoData.txt", sep=""), header=TRUE)
 load(paste(directory, "/cross.Rdata", sep=""))
@@ -69,14 +75,14 @@ genoinfo <- cross$geno
 ################
 ### Analysis ###
 ################
-col=wes_palette(16, name="Moonrise2", type='continuous')[c(8,1)]
 
 # 1. pattern of missing data
-pdf(paste(directory, "/missing_data_pattern.pdf", sep=""), height=20, width=15)
-aggr_plot <- aggr(pheno, col=col, prop=TRUE,numbers=TRUE, sortVars=TRUE, 
+## a) distribution
+pdf(paste(directory, "/missing_data_pattern.pdf", sep=""), height=5, width=7)
+aggr_plot <- aggr(pheno, col=col, prop=TRUE, numbers=FALSE, sortVars=TRUE, 
                   labels=names(pheno), cex.axis=.7, gap=3, 
-                  ylab=c("Frequency","Pattern"), combined=FALSE, border=NA,
-                  bars=TRUE, cex.numbers=0.9, oma = c(10,4,4,2) + 0.1,
+                  ylab=c("Combinations"), combined=TRUE, border=NA,
+                  bars=TRUE, cex.numbers=0.9, oma = c(8,4,4,2) + 0.1,
                   only.miss=FALSE, ylim=c(0, 0.42))
 dev.off()
 
@@ -88,26 +94,59 @@ per_sample_missingness <- data.frame(missing=apply(pheno, 1, function(x)
     length(which(is.na(x)))/length(x)))
 per_sample_missingness$complete <- 1 - per_sample_missingness$missing
 
+# b) Missing data mechanism
+### MCAR
+Samples2Keep <- per_sample_missingness$missing <= 0.20
+MCARtest <- LittleMCAR(pheno[Samples2Keep,])
+pMCAR <- pchisq(MCARtest$chi.square, MCARtest$df, lower.tail=FALSE)
+
+### MAR
+pheno_missing <- as.data.frame(abs(is.na(pheno)))
+corrMiss_P <- t(sapply(1:ncol(pheno), function(y) {
+    sapply(1:ncol(pheno), function(x) {
+        rcorr(missing[!is.na(pheno[,y]),x], pheno[!is.na(pheno[,y]),y])$P[1,2]
+    })
+}))
+corrMiss_R <- t(sapply(1:ncol(pheno), function(y) {
+    sapply(1:ncol(pheno), function(x) {
+        rcorr(missing[!is.na(pheno[,y]),x], pheno[!is.na(pheno[,y]),y])$r[1,2]
+    })
+}))
+corrMiss_Padjust <- apply(corrMiss_P, 2, p.adjust)
+colnames(corrMiss_R) <- colnames(pheno)
+rownames(corrMiss_R) <- colnames(pheno)
+
+pdf(paste(directory, "/correlation_missingness.pdf", sep=""), 
+    height=7, width=7)
+par(xpd=TRUE)
+corrplotHM(corrMiss_R, tl.col='black',method ="color", col=col_corr,
+           cl.lim = c(-max(abs(corrMiss_R), na.rm=TRUE),
+                      max(abs(corrMiss_R), na.rm=TRUE)), cl.cex=0.7, tl.cex=0.7,
+           tl.offset=0.2, cl.offset=0.2, cl.align.text='l', is.corr=FALSE,
+           na.label="square", na.label.col="grey",
+           mar = c(4,6,7,0), addgrid.col = 'grey')
+mtext(text="Phenotype", side=2, line=3, cex=1.1, adj=0.55)
+mtext(text="Missingness", side=1, line=2, cex=1.1, adj=0.5)
+dev.off()
+
 # 2. dataset with no missing values
 noNA_samples <- !apply(pheno, 1, function(x) any(is.na(x)))
 pheno_noNA <- pheno[noNA_samples,]
 
 ## a) correlation between phenotypes 
-pheno_noNA_cor <- rcorr(as.matrix(pheno_noNA), type="spearman")$r
-pheno_noNA_p <- rcorr(as.matrix(pheno_noNA), type="spearman")$P
-pheno_noNA_n <- diag(rcorr(as.matrix(pheno_noNA), type="spearman")$n)
+pheno_noNA_cor <- rcorr(as.matrix(pheno_noNA), type="pearson")$r
+pheno_noNA_p <- rcorr(as.matrix(pheno_noNA), type="pearson")$P
+pheno_noNA_n <- diag(rcorr(as.matrix(pheno_noNA), type="pearson")$n)
 pheno_noNA_padjust <- apply(pheno_noNA_p, 1, p.adjust)
 
 pdf(paste(directory, "/correlation_pheno_noNA.pdf", sep=""), 
-    height=20, width=15)
-col_corr <- colorRampPalette(col=c(
-    wes_palette(16, name="Moonrise2", type='continuous')[1], 
-    "white", 
-    wes_palette(16, name="Moonrise2", type='continuous')[6]))(100)
-corrplot(pheno_noNA_cor, tl.col='black',method ="ellipse", col=col_corr,
+    height=7, width=7)
+corrplot(pheno_noNA_cor, tl.col='black', method ="ellipse", col=col_corr,
          order="hclust", insig="blank", p.mat=pheno_noNA_padjust, addrect=7, 
-         tl.cex=1.2, cl.cex=1.2,tl.offset=0.2, cl.offset=0.2, cl.align.text='l')
+         tl.cex=0.7, cl.cex=0.7, tl.offset=0.2, cl.offset=0.2, 
+         cl.align.text='l')
 dev.off() 
+
 
 # 3. generate matrix with artificial missingness
 ## a) all samples with at least one and less then 20% missing phenotypes
@@ -136,21 +175,12 @@ plot(-log(frequency_missingness$missing),
 
 ## d) plot dataset
 pdf(paste(directory, "/missing_data_pattern_simulated.pdf", sep=""), 
-    height=20, width=15)
-aggr_plot <- aggr(pheno_addNA, col=col, prop=TRUE,numbers=TRUE, sortVars=TRUE, 
+    height=5, width=7)
+aggr_plot <- aggr(pheno_addNA, col=col, prop=TRUE,numbers=FALSE, sortVars=TRUE, 
                   labels=names(pheno), cex.axis=.7, gap=3, 
-                  ylab=c("Frequency","Pattern"), combined=FALSE, border=NA,
-                  bars=TRUE, cex.numbers=0.9, oma = c(10,4,4,2) + 0.1,
+                  ylab=c("Combinations"), combined=TRUE, border=NA,
+                  bars=TRUE, cex.numbers=0.9, oma = c(8,4,4,2) + 0.1,
                   only.miss=FALSE,ylim=c(0, 0.5))
-dev.off()
-
-pdf(paste(directory, "/", strftime(Sys.time(), "%Y%m%d"),
-          "_correlation_data_pattern_simulated_data_observer.pdf", sep=""), 
-    height=30, width=20)
-plot(0.5 * log2(frequency_missingness$missing *
-                    frequency_missingness_sample$missing), 
-     log2(frequency_missingness$missing/frequency_missingness_sample$missing), 
-     main="Frequency of trait missingness in entire data set and simulation")
 dev.off()
 
 # 4. impute artifically created missing data 
@@ -197,7 +227,7 @@ medianCorr0.2 = median(cor_Corr0.2_noNA_cor$cor_r)
 medianCorr0.3 = median(cor_Corr0.3_noNA_cor$cor_r)
 
 cor_setups <- data.frame(pheno = factor(colnames(pheno_noNA)), 
-                         corrCorr0.0=cor_Corr0.0_noNA_cor$cor_r, 
+                         corrAll=cor_Corr0.0_noNA_cor$cor_r, 
                          corrCorr0.1= cor_Corr0.1_noNA_cor$cor_r, 
                          corrCorr0.2=cor_Corr0.2_noNA_cor$cor_r, 
                          corrCorr0.3= cor_Corr0.3_noNA_cor$cor_r)
@@ -205,15 +235,20 @@ cor_setups_melt <- melt(cor_setups, variable.name="setup")
 cor_setups_melt$type <- gsub("corr(.*)", "\\1", cor_setups_melt$setup)
 cor_setups_melt$x <- 1
 
+# 5. Impute full data set
+## a) get best predictors for each trait 
+predictors <- colnames(cor_setups)[2:5][apply(cor_setups[,2:5], 1, which.max)]
+
+## b) Filter phenos that cannot be imputed
+cutoff<- 0.95
+Traits2Keep <- sapply(1:length(predictors), function(x) {
+    cor_setups[x,colnames(cor_setups) == predictors[x]] > cutoff
+})
 
 
-pdf(paste(directory,  
-          "/imputation_correlation_median_imputationvalue.pdf", sep=""), 
-    width=20, height=12, paper="a4r")
-
-cutoff=0.95
 xaxis_color <- rep('black', ncol(pheno_noNA))
-xaxis_color[which(cor_setups$corrCorr0.3 <= cutoff)] <- 'darkred'
+xaxis_color[!Traits2Keep] <- 'darkred'
+text_size <- 12
 rect_left <- seq(0.5, 45.5, 2)
 rectangles <- data.frame(xmin = rect_left, 
                          xmax = rect_left + 1, 
@@ -221,41 +256,36 @@ rectangles <- data.frame(xmin = rect_left,
                          ymax = 1.003)
 
 p <- ggplot()
-p + geom_rect(data=rectangles, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax), 
+p <- p + geom_rect(data=rectangles, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax), 
               fill='gray80', alpha=0.8) +
     geom_point(data=cor_setups_melt, aes(x=as.numeric(as.factor(pheno)), 
                                          y=value, color=type), size=1, 
                position=position_dodge(width=0.5)) +
-    scale_color_manual(values=wes_palette(4, name="Moonrise2", 
+    scale_color_manual(values=wes_palette(4, name="Darjeeling", 
                                           type='continuous'), name='Predictors') +
     theme_bw() +
     scale_y_continuous(limits=c(0.84, 1.003), expand = c(0,0) ) +  
     scale_x_continuous(breaks = seq(1, 46, 1), limits=c(0.5, 46.5),
                        minor_breaks=seq(0.5, 46.5, 1),
                        labels = colnames(pheno_addNA), expand = c(0,0) ) +
-    theme(axis.title.y = element_text(size=14),
-          axis.title.x = element_text(size=14),
+    theme(axis.title.y = element_text(size=text_size + 2),
+          axis.title.x = element_text(size=text_size + 2),
           axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5, size=12, 
                                      color=xaxis_color),
-          axis.text.y = element_text(size=12),
-          legend.title = element_text(size=14),
-          legend.text = element_text(size=12),
+          axis.text.y = element_text(size=text_size),
+          legend.title = element_text(size=text_size + 2),
+          legend.text = element_text(size=text_size),
           panel.grid.major.x=element_blank(),
           panel.grid.minor.x=element_blank(),
           panel.grid.minor.y=element_blank(),
           panel.grid.major.y=element_line(colour = 'grey', size = 0.5)) +
     labs(x="Phenotype", y="Pearson Correlation") +
     geom_hline(yintercept=cutoff)
-dev.off()
 
-# 5. Impute full data set
-## a) get best predictors for each trait 
-predictors <- colnames(cor_setups)[2:5][apply(cor_setups[,2:5], 1, which.max)]
+ggsave(plot=p, file=paste(directory,  
+                          "/imputation_correlation_median_imputationvalue.pdf", 
+                          sep=""), height=5, width=8, units="in")
 
-## b) Filter phenos that cannot be imputed
-Traits2Keep <- sapply(1:length(predictors), function(x) {
-    cor_setups[x,colnames(cor_setups) == predictors[x]] > cutoff
-})
 Samples2Keep <- per_sample_missingness$missing <= 0.20
 pheno_filtered <- pheno[Samples2Keep, Traits2Keep]
 
@@ -267,7 +297,7 @@ corr_info0.2_2Keep <- corr_info0.2[Traits2Keep, Traits2Keep]
 corr_info0.3_2Keep <- corr_info0.3[Traits2Keep, Traits2Keep]
 
 predictorMatrix <- do.call(rbind, lapply(1:ncol(pheno_filtered), function(x) {
-    if (predictors2Keep[x] == "corrCorr0.0") {
+    if (predictors2Keep[x] == "corrAll") {
         tmp <- rep(1, ncol(pheno_filtered))
         tmp[x] <- 0
         return(tmp)
@@ -287,6 +317,7 @@ predictorMatrix <- do.call(rbind, lapply(1:ncol(pheno_filtered), function(x) {
 imputeData_filtered <- mice(pheno_filtered, m=20, maxit=30, 
                             predictorMatrix=predictorMatrix, 
                             meth='pmm', seed=500) 
+
 complete_filtered <-combineImpute(imputeData_filtered, 
                                   npheno=ncol(pheno_filtered))
 colnames(complete_filtered) <- colnames(pheno_filtered)
@@ -301,3 +332,4 @@ write.table(c("effective_number_ofTests:", effective_number_ofTest),
             paste(directory, "/BYxRM_pheno_effectiveNumberofTests.txt", sep=""),
             sep="\t", col.names=FALSE, row.names=FALSE, quote=FALSE)
 
+save.image(paste(directory, "/phenotypes_yeast.Rdata", sep=""))
