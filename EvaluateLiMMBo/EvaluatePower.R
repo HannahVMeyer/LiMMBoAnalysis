@@ -3,7 +3,8 @@
 ### Evaluate power of genetic association studies for	###
 ### univariate LMM and multivariate LMMs with LiMMBo    ###
 ###                                                     ###
-### Data generated with setupLiMMBo/power.sh            ###
+### Data generated via setupLiMMBo/power_vd.sh          ###
+###                and setupLiMMBo/power_association.sh ###
 ###                                                     ###
 ### Generates Figure 4, S7 (publication)                ###
 ###           Figure 4.6 B1 (thesis)                    ###
