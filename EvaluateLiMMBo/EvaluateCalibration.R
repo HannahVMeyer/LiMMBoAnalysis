@@ -57,6 +57,40 @@ calibrationAcrossChromosomes <- function(gwas, directory, estimateString, K,
     }
 }
 
+summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
+                      conf.interval=.95, .drop=TRUE) {
+    
+    # New version of length which can handle NA's: if na.rm==T, don't count them
+    length2 <- function (x, na.rm=FALSE) {
+        if (na.rm) sum(!is.na(x))
+        else       length(x)
+    }
+    
+    # This does the summary. For each group's data frame, return a vector with
+    # N, mean, and sd
+    datac <- ddply(data, groupvars, .drop=.drop,
+                   .fun = function(xx, col) {
+                       c(N    = length2(xx[[col]], na.rm=na.rm),
+                         mean = mean   (xx[[col]], na.rm=na.rm),
+                         sd   = sd     (xx[[col]], na.rm=na.rm)
+                       )
+                   },
+                   measurevar
+    )
+    
+    # Rename the "mean" column    
+    datac <- rename(datac, c("mean" = measurevar))
+    
+    datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
+    
+    # Confidence interval multiplier for standard error
+    # Calculate t-statistic for confidence interval: 
+    # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
+    ciMult <- qt(conf.interval/2 + .5, datac$N-1)
+    datac$ci <- datac$se * ciMult
+    
+    return(datac)
+}
 ############
 ### data ### 
 ############
@@ -67,7 +101,7 @@ genVariance <- c(0.2, 0.5, 0.8)
 model <- "noiseBgOnlygeneticBgOnly"
 kinship <- c("unrelated_popstructure", "unrelated_nopopstructure", 
              "related_nopopstructure")
-dirroot <- "~/GWAS/data/LiMMBo/Calibration/samples1000_NrSNP20_Cg"
+dirroot <- "~/GWAS/data/LiMMBo/CalibrationOld/samples1000_NrSNP20_Cg"
 resultdir <- "~/GWAS/data/LiMMBo/Calibration"
 Traits <- seq(10,100,10)
 
@@ -235,6 +269,23 @@ if (! file.exist(paste(resultdir, "/calibrationSummary.rds", sep=""))) {
               sep=""))
     }
 }
+calibrationSummary.m <- melt(calibrationSummary[,-c(6,9,10)], 
+                             id.vars=c("alpha", "P","h2","kinship", "estimate"),
+                             value.name="FWER",
+                             variable.name="Model")
+calibrationSummary.m <- filter(calibrationSummary.m, 
+                               alpha %in% c("5e-05","5e-08"),
+                               kinship == "related~nopopstructure",
+                               P %in% c(10, 50, 100))
+calibrationSummary.table <- summarySE(calibrationSummary.m, measurevar="FWER", 
+                                      groupvars=c( "P", "Model", "alpha"),
+                                      na.rm=TRUE)
+calibrationSummary.table <-  dcast(calibrationSummary.table,  
+                                   P + alpha ~ Model, value.var="FWER")
+
+write.table(calibrationSummary.table, 
+            paste(resultdir, "/calibrationSummaryTable.csv", sep=""), 
+            quote=FALSE, col.names=TRUE, row.names=FALSE, sep=",")
 
 # plotting parameters
 xlabel=expression(Expected~~-log[10](italic(p))) 

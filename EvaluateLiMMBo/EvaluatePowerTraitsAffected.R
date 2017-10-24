@@ -7,18 +7,18 @@ library("wesanderson")
 library("dplyr")
 
 
-powerAnalysis <- function(gwas, directory,  fdr=0.001, 
+powerAnalysis <- function(gwas, directory,  fdr=0.001,
                           alpha=c(0.1, 0.01, 0.001),trueSNPs) {
-        p_file <- paste(directory, "/", gwas, "_pempirical_causalSNPs", fdr, 
-                        ".csv", sep="")
-        if(file.exists(p_file)) {
-            p_data <- fread(p_file, data.table=FALSE, stringsAsFactors=FALSE, 
-                            header=TRUE)
-            detected <- sapply(alpha, function(thr) 
-                               length(which(p_data < thr)))
-        } else {
-            detected <- rep(NA, length(alpha))
-        }
+    p_file <- paste(directory, "/", gwas, "_pempirical_causalSNPs", fdr,
+                    ".csv", sep="")
+    if(file.exists(p_file)) {
+        p_data <- fread(p_file, data.table=FALSE, stringsAsFactors=FALSE,
+                        header=TRUE)
+        detected <- sapply(alpha, function(thr)
+            length(which(p_data < thr)))
+    } else {
+        detected <- rep(NA, length(alpha))
+    }
 }
 ################
 ### analysis ###
@@ -29,25 +29,25 @@ NrSNPs=20
 genVariance <- c(0.2, 0.5, 0.8)
 Traits <- c(10, 50, 100)
 seed <- 1:50
-affected <- c(0.01, 0.04, 0.1, 0.2, 0.4, 0.6, 0.8)
+affected <- c(0.01, 0.04, 0.1, 0.2, 0.4, 0.6, 0.8, 1)
 model <- "noiseFixedAndBggeneticFixedAndBg"
 kinship <- "relatedEU_nopopstructure"
-dirroot <- "/homes/hannah/GWAS/data/LiMMBo/Power"
+dirroot <- "~/data/LiMMBo/Power"
 alpha <- c(0.1, 0.01, 0.001)
 
 
 powerH2 <- lapply(genVariance, function(h2) {
     powerTraits <- lapply(Traits, function(P) {
         powerSeed <- lapply(seed, function(S) {
-           powerAffected <- lapply(affected, function(a) {
+            powerAffected <- lapply(affected, function(a) {
                 if (P==10) sampling <- 5
                 if (P>10) sampling <- 10
-
-                directory=paste(dirroot, "/samples", N, "_traits", P, "_NrSNP", 
-                                NrSNPs, "_Cg", h2, "_model", model, "/seed", S, 
+                
+                directory=paste(dirroot, "/samples", N, "_traits", P, "_NrSNP",
+                                NrSNPs, "_Cg", h2, "_model", model, "/seed", S,
                                 "/TraitsAffected", a, "/estimateVD", sep="")
-
-                power <- data.frame(sapply(c("lmm_mt", "lmm_st"), powerAnalysis, 
+                
+                power <- data.frame(sapply(c("lmm_mt", "lmm_st"), powerAnalysis,
                                            directory=directory))
                 power$affected <- a
                 power$alpha <- alpha
@@ -65,64 +65,123 @@ powerH2 <- lapply(genVariance, function(h2) {
 })
 
 powerAll <- do.call(rbind, powerH2)
-powerAll$alpha <- factor(powerAll$alpha, level=alpha)
-saveRDS(powerAll, paste("~/GWAS/data/LiMMBo/Power/powerAll.rds", sep=""))
+powerAll$alpha <- factor(powerAll$alpha, labels=paste("FDR:", 
+                                                      unique(powerAll$alpha)))
+powerAll$H2 <- factor(powerAll$H2, level=,labels=paste("h[2]:", 
+                                                       unique(powerAll$H2)))
+colnames(powerAll)[1:2] <- c("mvLMM", "uvLMM")
+saveRDS(powerAll, paste(dirroot, "/powerTraitsAffectedNew.rds", sep=""))
 
-pdf(file="~/GWAS/data/LiMMBo/Power/powerAll.pdf",  height=12,width=12)
-p <- ggplot(filter(powerAll.m, alpha==0.001),  aes(x=Traits, 
-                                                   y=value/NrSNPs*100)) 
-p + geom_bar(stat = "identity", position="dodge",aes(fill=variable)) + 
-    facet_grid(kinship ~ H2) +
-    scale_fill_manual(values = moonrise[3:8]) +
-    labs(x = "Number of traits", y = "%detected true SNPs", title="0.001") +
+powerAll.m <- melt(powerAll, 
+                   id.vars=c("alpha", "Traits", "H2", "seed", "affected"),
+                   measured.vars=c("mvLMM", "uvLMM"), 
+                   value.name="sigSNPs",
+                   variable.name="Model")
+
+powerAll.m <- powerAll.m[!is.na(powerAll.m$sigSNPs),]
+color <- wes_palette(5, name="Darjeeling", type='continuous')[2:3]
+
+p <- ggplot(filter(powerAll.m, alpha == "FDR: 0.01"),  aes(x=as.factor(Traits), 
+                             y=sigSNPs/NrSNPs*100)) 
+p <- p + geom_boxplot(aes(color=as.factor(Model)), outlier.colour = NA,
+                 position=position_dodge(width=0.9)) + 
+    geom_point(aes(color=as.factor(Model)), 
+               position=position_jitterdodge(dodge.width=0.9),
+               size=0.8) +
+    facet_grid(as.factor(affected) ~ H2, labeller=label_parsed) +
+    scale_fill_manual(values = color, name="Model") +
+    scale_color_manual(values = color, name="Model") +
+    labs(x = "Number of traits", y = "%detected true SNPs") +
     theme_bw() +
-    theme(strip.text.x = element_text(size = 8))
-dev.off()
+    theme(strip.text.x = element_text(size = 8),
+          strip.background = element_rect(fill="white"))
+ggsave(plot=p, file=paste(dirroot, "/powerAll.pdf", sep=""),
+       height=12, width=12)
 
-p <- ggplot(filter(calibrationBgOnly, estimate =="estimateVD"), 
-            aes(x=as.factor(P), y=-log10(lm_pc)))
-p + geom_bar(stat = "identity", position="dodge",aes(fill=alpha)) +
-    facet_grid(kinship ~ h2) +
-    scale_fill_manual(values = moonrise[5:8]) +
-    labs(x = "Number of traits", y = expression(-log[10](FDR)), 
-         title="LM with PCs") +
- 	geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5]) +
- 	geom_hline(yintercept = -log10(alpha[2]), colour = moonrise[6]) +
- 	geom_hline(yintercept = -log10(alpha[3]), colour = moonrise[7]) +
- 	geom_hline(yintercept = -log10(alpha[4]), colour = moonrise[8]) +
+textsize <- 10
+jitter_amount <-  0
+## ideal scenario, with all traits being affected
+affected1_h02 <- ggplot(filter(powerAll.m, alpha == "FDR: 0.01", affected == 1, 
+                         H2 == "h[2]: 0.2"),  
+                  aes(x=as.factor(Traits), 
+                      y=jitter(sigSNPs/NrSNPs*100, jitter_amount)))
+affected1_h02 <- affected1_h02 + 
+    geom_boxplot(aes(fill=Model)) + 
+    scale_fill_manual(values = color) +
+    labs(x =  "Number of traits", y = "%detected true SNPs") +
+    ylim(c(0,52)) +
     theme_bw() +
-    theme(strip.text.x = element_text(size = 8))
+    theme(axis.text.x = element_text(colour="black", size=textsize, angle=0,
+                                     hjust=.5, vjust=1,face="plain"),
+          axis.text.y = element_text(colour="black", size=textsize, angle=0,
+                                     hjust=1, vjust=0, face="plain"),  
+          axis.title.x = element_text(colour="black", size=textsize, angle=0,
+                                      hjust=.5, vjust=0, face="plain"),
+          axis.title.y = element_text(colour="black", size=textsize, angle=90,
+                                      hjust=.5, vjust=.5, face="plain"),
+          legend.text = element_text(colour="black", size=textsize, angle=0,
+                                     hjust=1, vjust=0, face="plain"),
+          plot.margin = unit(c(0, 0.1, 0, 0), "cm"),
+          legend.position = 'bottom')
 
-p <- ggplot(filter(calibrationBgOnly, estimate =="estimateVD"), 
-            aes(x=as.factor(P), y=-log10(lmm)))
-p + geom_bar(stat = "identity", position="dodge",aes(fill=alpha)) +
-    facet_grid(kinship ~ h2) +
-    scale_fill_manual(values = moonrise[5:8]) +
-    labs(x = "Number of traits", y = expression(-log[10](FDR)), title="LMM") +
- 	geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5]) +
- 	geom_hline(yintercept = -log10(alpha[2]), colour = moonrise[6]) +
- 	geom_hline(yintercept = -log10(alpha[3]), colour = moonrise[7]) +
- 	geom_hline(yintercept = -log10(alpha[4]), colour = moonrise[8]) +
+## keep number of traits and genetic architeture constanst, 
+## change number of traits affected
+P50_h02 <- ggplot(filter(powerAll.m, alpha == "FDR: 0.01", Traits == 50, 
+                    H2 == "h[2]: 0.2", affected > 0.1),  
+            aes(x=as.factor((100*affected)), 
+                y=jitter(sigSNPs/NrSNPs*100, jitter_amount))) 
+P50_h02 <- P50_h02 + 
+    geom_boxplot(aes(fill=Model)) + 
+    scale_fill_manual(values = color) +
+    labs(x = "% affected traits", y = "") +
+    ylim(c(0,52)) +
     theme_bw() +
-    theme(strip.text.x = element_text(size = 8))
+    theme(axis.text.x = element_text(colour="black", size=textsize, angle=0,
+                                     hjust=.5, vjust=1, face="plain"),
+          axis.text.y = element_text(colour="black", size=textsize, angle=0,
+                                     hjust=1, vjust=0, face="plain"),  
+          axis.title.x = element_text(colour="black", size=textsize, angle=0,
+                                      hjust=.5, vjust=0, face="plain"),
+          legend.text = element_text(colour="black", size=textsize, angle=0,
+                                     hjust=1, vjust=0, face="plain"),
+          plot.margin = unit(c(0, 0.1, 0, 0), "cm"),
+          legend.position = 'bottom')
 
-dev.off()
-
-pdf(file="~/GWAS/data/LiMMBo/Calibration/calibrationBGOnly_closedForm.pdf", 
-    height=12, width=12)
-p <- ggplot(filter(calibrationBgOnly, P <= 30), aes(x=as.factor(P), 
-                                                    y=-log10(lmm)))
-p + geom_bar(stat = "identity", position="dodge",aes(fill=alpha, 
-                                                     alpha=estimate)) +
-    facet_grid(kinship ~ h2) +
-    scale_fill_manual(values = moonrise[c(5:8)]) +
-	scale_alpha_manual(values = c(0.4, 0.8)) + 
-    labs(x = "Number of traits", y = expression(-log[10](FDR)), title="LMM") +
-    geom_hline(yintercept = -log10(alpha[1]), colour = moonrise[5]) +
-    geom_hline(yintercept = -log10(alpha[2]), colour = moonrise[6]) +
-    geom_hline(yintercept = -log10(alpha[3]), colour = moonrise[7]) +
-    geom_hline(yintercept = -log10(alpha[4]), colour = moonrise[8]) +
-    ylim(c(0,10))+
+## keep number of traits and affected traits constanst, 
+## change genetic background
+P100_affected0.6 <- ggplot(filter(powerAll.m, alpha == "FDR: 0.01", 
+                                  Traits == 100, affected == 0.6),  
+                           aes(x=H2, y=jitter(sigSNPs/NrSNPs*100, 
+                                              jitter_amount)))
+P100_affected0.6 <- P100_affected0.6 + 
+    geom_boxplot(aes(fill=Model)) + 
+    scale_fill_manual(values = color) +
+    scale_x_discrete(labels=c(0.2, 0.5, 0.8)) +
+    labs(x = expression(h[2]), y = "") +
+    ylim(c(0,52)) +
     theme_bw() +
-    theme(strip.text.x = element_text(size = 8))
-dev.off()
+    theme(axis.text.x = element_text(colour="black", size=textsize, angle=0,
+                                     hjust=.5, vjust=1, face="plain"),
+          axis.text.y = element_text(colour="black", size=textsize, angle=0,
+                                     hjust=1, vjust=0, face="plain"),  
+          axis.title.x = element_text(colour="black", size=textsize, angle=0,
+                                      hjust=.5, vjust=0, face="plain"),
+          legend.text = element_text(colour="black", size=textsize, angle=0,
+                                     hjust=1, vjust=0, face="plain"),
+          plot.margin = unit(c(0, 0.1, 0, 0), "cm"),
+          legend.position = 'bottom')
+
+legendModel <- get_legend(P100_affected0.6)
+plots <-  plot_grid(affected1_h02  + theme(legend.position ='none'), 
+                    P50_h02  + theme(legend.position ='none'), 
+                    P100_affected0.6 + theme(legend.position ='none'),
+                    align="h", nrow=1, labels=c("A", "B", "C"), 
+                    label_size = 12, hjust=0)
+powerplot <- plot_grid(plots, legendModel, nrow=2, rel_heights = c(5,1)) 
+                          
+ggsave(plot=powerplot, file=paste(dirroot, "/power.pdf", sep=""), 
+       height=4, width=5.2, units="in")
+ggsave(plot=powerplot, file=paste(dirroot, "/power.eps", sep=""), 
+       height=4, width=5.2, units="in")
+
+
