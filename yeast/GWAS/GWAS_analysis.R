@@ -34,8 +34,9 @@ library("cowplot")
 library('ggdendro')
 library('dendextend')
 library("wesanderson")
-source("~/GWAS/analysis/general/pvclustHM.R")
-source("~/LiMMBo/yeast/GWAS/manhattanplot.R")
+source("~/projects/utils/pvclustHM.R")
+source("~/projects/utils/manhattanplot.R")
+source("~/projects/utils/qqplot.R")
 
 filterLD <- function(fac, snp, ld, sigSNP, p_original, multitrait=FALSE) {
     if (multitrait) {
@@ -88,7 +89,11 @@ chrArab2chrRom <- function(x, direction="arab2rom") {
 ############
 ### data ###
 ############
-directory='~/data/LiMMBo/feasabilityBootstrap/yeast'
+directory='~/data/LiMMBo/yeast'
+
+# phenotypes
+pheno <- fread(paste(directory, "/inputdata/BYxRM_pheno_format.txt", sep=""),
+            header=TRUE, data.table=FALSE, stringsAsFactors=FALSE)
 
 # fdr thresholds for significcance in multi-variate uni-variate LMM via
 # permutation obtained from GWAS_yeast.sh calling gwas.py 
@@ -100,7 +105,7 @@ ld <- fread(paste(directory, "/inputdata/BYxRM.3kb.tags.list", sep=""),sep=" ",
             data.table=FALSE)  
 ld$ID <- gsub("\\d*_chr0?(\\d{1,2})_(\\d*)_.*", "chr\\1:\\2",ld$SNP)
 
-# p values of multi-variate, any effect LMM 
+# p values of multivariate, any effect LMM 
 pany <- fread(paste(directory, "/GWAS/pvalues_lmm_any.csv", sep=""), sep=",", 
               data.table=FALSE)
 colnames(pany) <- c("ID", "P")
@@ -109,7 +114,12 @@ pany$CHR <- as.numeric(gsub("chr(\\d{1,2}):(\\d*)", "\\1", pany$ID))
 pany$BP <- as.numeric(gsub("chr(\\d{1,2}):(\\d*)", "\\2", pany$ID))
 pany$TYPE <- 'multitrait'
 
-# p values of single-variate LMM 
+# p values of univariate LMM 
+psingleall <- fread(paste(directory, "/GWAS/lmm_st_pvalue_genome.csv", sep=""),
+             header=TRUE, data.table=FALSE, stringsAsFactors=FALSE)
+colnames(yeast)[4:ncol(yeast)] <- colnames(pheno)[-1]
+
+# min p values per SNP across univariate LMM 
 psingle <- fread(paste(directory, "/GWAS/pvalues_lmm_single_min_adjust.csv", 
                        sep=""), sep=",", data.table=FALSE, header=TRUE)
 colnames(psingle) <- c("ID", "P")
@@ -350,6 +360,20 @@ chr <- factor(chr, levels=1:16)
 ### plots ###
 #############
 
+## Manhattanplots for all single-trait analyses
+colManhattan <- c("#F98400", "gray70")
+plotp <- sapply(4:ncol(psingleall), function(x) {
+    genome <- psingleall[, c(1:3,x)]
+    colnames(genome)[4] <- "P"
+    p_manhattan <- manhattan(genome, bp="POS", color=colManhattan,
+                             genomewideline= -log10(fdr_single),
+                             colorGenomewide = "gray50", size.x.labels=12,
+                             size.y.labels=12) +
+                  theme(axis.title =element_text(size=12))
+    ggsave(plot=p_manhattan, height=4, width=10,
+           file=paste(directory,"/GWAS/", colnames(psingleall)[x],
+                      "_manhattanplot.png", sep=""))
+           })
 
 ##  rectangles for significant SNP clusters across different chromosomes
 cluster_cols <-  data.frame(ID=rownames(pbeta_map_sig_order), 
