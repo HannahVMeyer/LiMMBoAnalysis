@@ -15,7 +15,7 @@
 ###         * multivariate LMMs with LiMMBo             ###
 ###                                                     ###
 ### Generates Figure 5 (publication)                    ###
-###           Figure 5.5, 5.6 (thesis)                  ###
+###           Figure 5.5, 5.6, B.2 (thesis)             ###
 ###                                                     ###
 ###########################################################
 
@@ -360,7 +360,7 @@ chr <- factor(chr, levels=1:16)
 ### plots ###
 #############
 
-## Manhattanplots for all single-trait analyses
+## Manhattanplots for all single-trait analyses (Figure B.2 thesis)
 colManhattan <- c("#F98400", "gray70")
 plotp <- sapply(4:ncol(psingleall), function(x) {
     genome <- psingleall[, c(1:3,x)]
