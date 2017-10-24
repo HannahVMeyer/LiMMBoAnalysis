@@ -1,0 +1,7 @@
+**Generate datasets for performance analyses of LiMMBo**
+
+1. **Run time and covariance estimation**: Generate phenotypes with three different levels of h2 and ten different numbers of traits (10-100) for a population with related individuals. Phenotypes are composed of infinitesimal genetic ('background') and observational noise effects only. Create ten independent datasets for each set-up via [*simulatePhenotypesRuntime.sh*](simulatePhenotypesRuntime.sh). 
+
+1. **Calibration**: Generate phenotypes with three different levels of h2 and four different numbers of traits (10, 30, 40, 50) for three different populations: i) related individuals, no population structure, ii) unrelated individuals, population structure, iii) unrelated individuals, no population structure. Phenotypes are composed of infinitesimal genetic  and observational noise effects only. Created via [*simulatePhenotypesCalibration.sh*](simulatePhenotypesCalibration.sh).
+
+1. **Power**: Generate phenotypes with five different levels of h2 and ten different numbers of traits (10-100) for a population with related individuals. Phenotypes are composed of SNP genetic effects, infinitesimal genetic effects and observational noise effects only. For each dataset, five different SNP effects are simulated, affecting different proportions of the simulated traits (0.2, 0.4, 0.6, 0.8, 1). Create 50 independent datasets for each set-up via [*SimulatePhenotypesPower.R*](SimulatePhenotypesPower.R) and [*runSimulatePhenotypesPower.sh*](runSimulatePhenotypesPower.sh).
