@@ -31,7 +31,7 @@ SimilarityCovariance <- function(trueDirectory, fitDirectory,
                          sep="")
     fitCg_file <- paste(fitDirectory, "/Cg_fit_seed", seedLiMMBo, ".csv",
                         sep="")
-    fitCn_file <- paste(fitDirectory, "/Cn_fit_seed", seedLiMMBo, ".csv", 
+    fitCn_file <- paste(fitDirectory, "/Cn_fit_seed", seedLiMMBo, ".csv",
                         sep="")
     mtSetCg_file <- paste(fitDirectory, "/Cg_mtSet.csv", sep="")
     mtSetCn_file <- paste(fitDirectory, "/Cn_mtSet.csv", sep="")
@@ -39,9 +39,7 @@ SimilarityCovariance <- function(trueDirectory, fitDirectory,
     trueCg <- fread(trueCg_file, data.table=FALSE, stringsAsFactors=FALSE)
     trueCn <- fread(trueCn_file, data.table=FALSE, stringsAsFactors=FALSE)
     uniqueElements <- length(trueCg[lower.tri(as.matrix(trueCg), diag=TRUE)])
-
     if (file.exists(fitCg_file)) {
-        
         fitCg <- fread(fitCg_file, data.table=FALSE, stringsAsFactors=FALSE)
         fitCn <- fread(fitCn_file, data.table=FALSE, stringsAsFactors=FALSE)
         rssCg_fit <- sum((trueCg[lower.tri(as.matrix(trueCg), diag=TRUE)] - 
@@ -57,9 +55,9 @@ SimilarityCovariance <- function(trueDirectory, fitDirectory,
         rmseCn_fit <- NA
     }
     if (file.exists(mtSetCg_file)) {
-        mtSetCg <- fread(mtSetCg_file, data.table=FALSE, 
+        mtSetCg <- fread(mtSetCg_file, data.table=FALSE,
                          stringsAsFactors=FALSE)
-        mtSetCn <- fread(mtSetCn_file, data.table=FALSE, 
+        mtSetCn <- fread(mtSetCn_file, data.table=FALSE,
                          stringsAsFactors=FALSE)
     	rssCg_mtSet <- sum((trueCg[lower.tri(as.matrix(trueCg), diag=TRUE)] - 
 					  mtSetCg[lower.tri(as.matrix(mtSetCg), diag=TRUE)])^2)
@@ -67,7 +65,6 @@ SimilarityCovariance <- function(trueDirectory, fitDirectory,
                       mtSetCn[lower.tri(as.matrix(mtSetCn), diag=TRUE)])^2)
     	rmseCg_mtSet <- sqrt(rssCg_mtSet/uniqueElements)
     	rmseCn_mtSet <- sqrt(rssCn_mtSet/uniqueElements)
-                      
     } else {
         rssCg_mtSet <- NAvalues
         rssCn_mtSet <- NAvalues
@@ -79,7 +76,7 @@ SimilarityCovariance <- function(trueDirectory, fitDirectory,
 }
 
 ############
-### data ### 
+### data ###
 ############
 
 seedLiMMBo=29348
@@ -102,7 +99,7 @@ legendtitle <- 12
 color <- wes_palette(5, name="Darjeeling", type='continuous')[2:3]
 
 ################
-### analysis ### 
+### analysis ###
 ################
 
 # Compare covariance estimates from REML and LiMMBo to true (known from 
@@ -148,6 +145,7 @@ covarianceSummary <- melt(covarianceSummary,
                                           "rmseCg_RML", "rmseCn_RML"),
                           value.name="SS",
                           variable.name="type")
+
 covarianceSummary$component <- gsub("[rmse]{3,4}(C.*)_.*", "\\1", 
                                     covarianceSummary$type)
 covarianceSummary$measure <- gsub("([rmse]{3,4})C.*_.*", "\\1", 

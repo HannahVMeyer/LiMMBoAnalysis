@@ -1,3 +1,26 @@
+###########################################################
+###                                                     ###
+### Analyse results from GWAS of 41 yeast quantitative  ###
+### growth traits via yeast/GWAS/GWAS_yeast.sh          ###
+###                                                     ###
+###     * dataset from Bloom et al 2013                 ###
+###     * phenotypes processed via                      ###
+###         yeast/phenotypes/phenotypes_yeast.R         ###
+###     * genotypes processed via                       ###
+###         yeast/genotypes/genotypes_yeast.R           ###
+###     * relationship estimated via                    ###
+###         yeast/genotypes/relationship_yeast.R        ###
+###     * GWAS via  yeast/GWAS/GWAS_yeast.sh            ###
+###         * univariate LMM                            ###
+###         * multivariate LMMs with LiMMBo             ###
+###                                                     ###
+### Generates Figure 5 (publication)                    ###
+###           Figure 5.5, 5.6 (thesis)                  ###
+###                                                     ###
+###########################################################
+
+
+
 ###############################
 ### Libraries and Functions ###
 ###############################
@@ -58,19 +81,19 @@ chrArab2chrRom <- function(x, direction="arab2rom") {
         } else {
             switch(EXPR=x, "I"=1, "II"=2, "III"=3, "IV"=4, "V"=5, "VI"=6, 
                    "VII"=7, "VIII"=8, "IX"=9, "X"=10, "XI"=11, "XII"=12, 
-                   "XIII"=13, "XIV"=14, "XV"=15, "XVI"=16, "Mito"="Mito")
+                   "XIII"=13, "XIV"=14, "XV"=15, "XVI"=16, "Mito"=17, "M"=17)
         }
 }
 
 ############
 ### data ###
 ############
-directory='~/GWAS/data/LiMMBo/feasabilityBootstrap/yeast'
+directory='~/data/LiMMBo/feasabilityBootstrap/yeast'
 
-# fdr thresholds for significcance in multi-variate uni-variate LMM via 
-# permutation obtained from ...
-fdr_multi=1.99537104453e-05
-fdr_single=1.30007477173e-05
+# fdr thresholds for significcance in multi-variate uni-variate LMM via
+# permutation obtained from GWAS_yeast.sh calling gwas.py 
+fdr_multi=1.150566e-05
+fdr_single=8.636346e-06
 
 # tag SNPs within 3kb window with r2 > 0.8 according to Liti et al (2009) Nature
 ld <- fread(paste(directory, "/inputdata/BYxRM.3kb.tags.list", sep=""),sep=" ", 
@@ -98,7 +121,17 @@ psingle$TYPE <- 'singletrait'
 # effect sizes
 bany <- fread(paste(directory, "/GWAS/betas_lmm_any.csv", sep=""), sep=",", 
 data.table=FALSE)
-bany$SNP <- ld$SNP
+colnames(bany)[1] <- "SNP"
+bany$ID <- ld$SNP
+
+# yeast chromosome sizes generated via 
+# fetchChromSizes sacCer3 sacCer3.chrom.sizes > sacCer3.chrom.sizes.txt
+chrom_size <- read.table(paste(directory, "/inputdata/sacCer3.chrom.sizes.txt",
+                               sep=""), stringsAsFactors=FALSE)
+chrom_size$chr <- unlist(sapply(gsub("chr", "", chrom_size$V1), 
+                         chrArab2chrRom, direction="rom2arab"))
+chrom_size <- chrom_size[order(chrom_size$chr),]
+colnames(chrom_size)[1:2] <- c("CHR", "length")
 
 ################
 ### analysis ###
@@ -162,7 +195,7 @@ p_pruned_sig$MARKER <- "tag"
 # get unique SNPs from LD filtered, most significant
 ldfilteredSNPs <- unique(c(pany_ldfiltered$SNP, psingle_ldfiltered$SNP))
 
-# Combine pvalues for manhattan plot  
+# Combine pvalues for manhattan plot
 pany_commonfiltered <- pany[pany$SNP %in% ldfilteredSNPs,]
 pany_commonfiltered$MARKER <- ""
 psingle_commonfiltered <- psingle[psingle$SNP %in% ldfilteredSNPs,]
@@ -216,7 +249,7 @@ ID2Genes <- apply(as.matrix(snpsGWASGenes.df), 1, function(x) {
 })
 ID2Genes <- do.call(rbind, ID2Genes)
 beta_map <- merge(ID2Genes, bany, by.x=10, by.y=1)
-pbeta_map <- merge(beta_map[,c(1:2, 7, 9, 12:52)], pany[,1:2], by=1)
+pbeta_map <- merge(beta_map[,c(1:2, 7, 9, 11:52)], pany[,1:2], by=1)
 
 # some SNPs are mapped to more than one gene; get these SNPs + paste gene column
 duplicateSNPs <- pbeta_map[which(pbeta_map$SNP %in% 
@@ -240,7 +273,7 @@ pbeta_map <- rbind(pbeta_map, mergedSNPs)
 ### effect size analysis ###
 ############################
 
-# Remove all non-significant SNPs 
+# Remove all non-significant SNPs
 pbeta_map_ld <- pbeta_map[pbeta_map$SNP %in% pany_ldfiltered$ID,]
 pbeta_map_sig <- pbeta_map_ld[pbeta_map_ld$P < fdr_single,]
 rownames(pbeta_map_sig) <- pbeta_map_sig$SNP
@@ -250,12 +283,13 @@ saveRDS(pbeta_map_sig, paste(directory, "/GWAS/pbeta_map_ld_sig.rds", sep=""))
 method.dist <- "correlation"
 
 ## for traits
-pbeta_map_traits_pv <- pvclust(pbeta_map_sig[,5:44], nboot=50000, iseed=10, 
+pbeta_map_traits_pv <- pvclust(pbeta_map_sig[,5:45], nboot=50000, iseed=10,
                           method.dist=method.dist)
 saveRDS(pbeta_map_traits_pv, paste(directory, "/GWAS/",  
                               strftime(Sys.time(), "%Y%m%d"), 
-                              "pbeta_map_traits_pv_50k_", 
+                              "pbeta_map_traits_pv_50k_fdr5e-5", 
                               method.dist, ".rds", sep=""))
+# pbeta_map_traits_pv <- readRDS( paste(directory, "/GWAS/20170626pbeta_map_traits_pv_50k_fdr5e-5correlation.rds", sep=""))
 pvclustPlot(pbeta_map_traits_pv, print.bp=FALSE, print.edge=TRUE,
             col.pv=wes_palette(4, name="Moonrise2", type='continuous')[2])
 pvclustRect(pbeta_map_traits_pv, max.only=TRUE, highestEdge = 20)
@@ -273,13 +307,14 @@ pbeta_map_traits_clusters <- data.frame(do.call(rbind,
                                         stringsAsFactors=FALSE)
 colnames(pbeta_map_traits_clusters) <- c("ID", "cluster")
 
-## for SNPs 
+## for SNPs
 pbeta_map_snps_pv <- pvclust(t(pbeta_map_sig[,5:44]), nboot=10000, iseed=10, 
                                method.dist=method.dist)
 saveRDS(pbeta_map_snps_pv, paste(directory, "/GWAS/",  
                                    strftime(Sys.time(), "%Y%m%d"), 
                                    "pbeta_map_snps_pv_", 
                                    method.dist, ".rds", sep=""))
+#pbeta_map_snps_pv <- readRDS("~/GWAS/data/LiMMBo/feasabilityBootstrap/yeast/GWAS/20170526pbeta_map_snps_pv_fdr5e-5correlation.rds")
 
 pvclustPlot(pbeta_map_snps_pv, print.bp=FALSE, print.edge=TRUE, labels=FALSE, 
             col.pv=wes_palette(4, name="Moonrise2", type='continuous')[2])
@@ -298,24 +333,23 @@ pbeta_map_snps_clusters <- data.frame(do.call(rbind,
 colnames(pbeta_map_snps_clusters) <- c("ID", "cluster")
 
 ## order according to cluster order
-pbeta_map_sig_order <- pbeta_map_sig[,5:44][pbeta_map_snps_pv$hclust$order,
+snp <- pbeta_map_sig$SNP
+snp <- factor(snp[pbeta_map_snps_pv$hclust$order], 
+              levels=unique(snp[pbeta_map_snps_pv$hclust$order])) 
+
+pbeta_map_sig_order <- pbeta_map_sig[,5:45][pbeta_map_snps_pv$hclust$order,
                                     pbeta_map_traits_pv$hclust$order]
 pbeta_map_sig_order.m <- melt(data.frame(SNP=snp, pbeta_map_sig_order), 
                               value.name = "beta",
                               variable.name="trait")
 
+chr <- gsub("chr(\\d{1,2}):.*", "\\1", rownames(pbeta_map_sig_order))
+chr <- factor(chr, levels=1:16)
 
 #############
 ### plots ###
 #############
 
-##   plotting parameters
-colManhattan <- wes_palette(5, name="Darjeeling", type='continuous')[c(5,4)]
-colStrength <- c(wes_palette(5, name="Darjeeling", type='continuous')[c(2)],
-                 "white",
-                 wes_palette(5, name="Darjeeling", type='continuous')[4])
-Colcol <- c(wes_palette(16, name="Darjeeling", type='continuous'))
-linesize <- 0.5
 
 ##  rectangles for significant SNP clusters across different chromosomes
 cluster_cols <-  data.frame(ID=rownames(pbeta_map_sig_order), 
@@ -327,6 +361,8 @@ cluster_cols$cluster <- sapply(cluster_cols$ID, function(x) {
     } else {
         "no_cluster"
     }})
+cluster_cols$geneID <- pbeta_map_sig$geneID[pbeta_map_snps_pv$hclust$order]
+cluster_cols$geneName <- pbeta_map_sig$geneName[pbeta_map_snps_pv$hclust$order]
 
 cluster2chromosomes <- sapply(unique(cluster_cols$cluster) , function(x) {
     tmp <- cluster_cols[which(cluster_cols$cluster == x),]
@@ -338,6 +374,15 @@ cluster2chromosomes <- sapply(unique(cluster_cols$cluster) , function(x) {
 })
 multipleChr <- cluster2chromosomes[! grepl("single", cluster2chromosomes)]
 multipleChr <- multipleChr[!grepl("no", names(multipleChr))]
+
+cluster_cols$clustertype <- sapply(cluster_cols$cluster, function(x) {
+    cluster2chromosomes[which(names(cluster2chromosomes) == x)]
+})
+
+write.table(cluster_cols, paste(directory, "/GWAS/", strftime(Sys.time(), 
+                                                              "%Y%m%d"), 
+                  "SNP_clusters.csv", sep=""), sep=",", quote=FALSE, 
+            col.names=TRUE)
 
 cluster_cols_start <- which(!duplicated(cluster_cols$cluster))
 cluster_cols_start <- cluster_cols_start[-which(
@@ -379,23 +424,29 @@ cluster_rows_rect <- data.frame(ymin=cluster_rows_start,
                                 colour=unique(cluster_rows$cluster)[-which(
                                     grepl("no",unique(cluster_rows$cluster)))])
 
-## create chromsome and snp ojects as basis for ggplot objects
-chr <- gsub("chr(\\d{1,2}):.*", "\\1", rownames(pbeta_map_sig_order))
-chr <- factor(chr, levels=1:length(unique(chr)))
 
-snp <- pbeta_map_sig$SNP
-snp <- factor(snp[pbeta_map_snps_pv$hclust$order], 
-              levels=unique(snp[pbeta_map_snps_pv$hclust$order]))
 
-### ggplots 
+### ggplots for Figure 5.5, 5.6 (thesis) and Figure 5 (publication)
+
+##   plotting parameters
+colManhattan <- wes_palette(5, name="Darjeeling", type='continuous')[c(5,4)]
+colStrength <- c(wes_palette(5, name="Darjeeling", type='continuous')[c(2)],
+                 "white",
+                 wes_palette(5, name="Darjeeling", type='continuous')[4])
+Colcol <- wes_palette(18, name="Darjeeling", type='continuous')[-c(1:2)]
+linesize <- 0.5
+textsize <- 10
+legendsize <- 10
+
 # manhattan plot
 pman <- manhattan(p_ldfiltered, genomewideline=-log10(fdr_single), 
-                  size.y.labels=10, size.x.labels=10, xscale=TRUE, mtvsst=TRUE, 
-                  cols=colManhattan, a=0.8, 
-                  colGenomewideline=colManhattan[2]) + 
+                  size.y.labels=textsize, size.x.labels=textsize, xscale=TRUE, 
+                  mtvsst=TRUE, cols=colManhattan, a=0.8, 
+                  colorGenomewideline=colManhattan[2]) + 
     theme(panel.border = element_blank(),
-          legend.text=element_text(size=10),
-          legend.title=element_text(size=12)) +
+          legend.text=element_text(size=textsize),
+          legend.title=element_text(size=textsize),
+          legend.key.size = unit(0.5,"line")) +
     labs(colour="GWAS set-up")
 
 # chromosome location of clustered SNPs
@@ -411,10 +462,13 @@ chr_snp <-  ggplot(data.frame(SNP=snp, variable=1, chr=chr,
           axis.line = element_blank(),
           axis.ticks=element_blank(),
           axis.text=element_blank(),
-          legend.text=element_text(size=10, angle = 0, hjust = 1),
-          legend.title=element_text(size=12),
+          legend.text=element_text(size=legendsize, angle = 0, hjust = 1),
+          legend.title=element_text(size=legendsize),
+          legend.key.size = unit(0.5,"line"),
           plot.margin = unit(c(0, 0, 0, 0), "cm"))
 legendChr <- get_legend(chr_snp)
+legendChr$layout$t[1] <- 1 
+
 
 # dendrogram of clustered SNPs
 relabeled_dendro_snps <- pbeta_map_snps_pv$hclust %>% 
@@ -425,14 +479,15 @@ dendrogram_snp <- ggplot() + geom_blank() +
     geom_segment(data = segment(snp_dendro), 
                  aes(x = x, y = y, xend = xend, yend = yend,
                  colour= as.factor(lwd))) +
-    scale_color_manual(values=c("black", wes_palette(5, name="Darjeeling", 
-                type='continuous')[4]),
+    scale_color_manual(values=c("black",'#03569b'),
                 guide=FALSE) +
+    labs(title="SNPs") +
     scale_x_continuous(expand=c(0,0)) +
-    theme(axis.title=element_blank(),
+    theme(axis.title = element_blank(),
           axis.line = element_blank(),
           axis.ticks=element_blank(),
           axis.text=element_blank(),
+          plot.title =  element_text(size = textsize),
           plot.margin = unit(c(0, 0, 0, 0), "cm"))
 
 # dendrogram of trait clustering
@@ -450,28 +505,44 @@ dendrogram_traits <- ggplot() + geom_blank() +
                        limits=c(0,42)) +
     scale_y_continuous(expand=c(0,0)) +
     scale_color_manual(values=c("black",
-                                wes_palette(5, name="Darjeeling", 
-                                            type='continuous')[4]),
+                                '#03569b'),
                        guide=FALSE) +
     coord_flip() + 
     theme(axis.title=element_blank(),
           axis.line = element_blank(),
           axis.ticks=element_blank(),
           axis.text.x=element_blank(),
-          axis.text.y = element_text(size = 10, angle = 0, hjust = 1))
+          axis.text.y = element_text(size = textsize, angle = 0, hjust = 1))
 
+labelTraitsDendro <- ggplot() + 
+    annotate("text", label = "Traits", x = 1, y = 1, size = 4, 
+             fontface="bold") +
+    theme_nothing()
 
-# effect sizes clustered by SNPs and traits
+# label cluster 28 and 31
+specificCluster <- cluster_cols_rect_multiple[
+                    cluster_cols_rect_multiple$colour %in% 
+                        c("cluster 28", "cluster 31"),]
+specificCluster$xmean <- (specificCluster$xmax + specificCluster$xmin)/2
+specificCluster$label <- c("a", "b")
+labelClusters <- ggplot(data=specificCluster,aes(x=xmean, y=ymin, 
+                                                 label=label)) + 
+                geom_text(size=4) +
+                scale_x_continuous(expand=c(0,0), limits=c(0,210)) +
+                scale_y_continuous(expand=c(0,0)) +
+                theme(axis.title=element_blank(),
+                      axis.line = element_blank(),
+                      axis.ticks=element_blank(),
+                      axis.text=element_blank(),          
+                      plot.margin = unit(c(-8, 0, -8, 0), "cm"))
+
+# effect sizes clustered by SNPs and traits and 
+colStrength <- c('#ca0020','#f4a582','#ffffff','#bababa','#404040')
 beta_snp_hm <-  ggplot(pbeta_map_sig_order.m) + 
     geom_tile(aes(x=as.numeric(SNP), y=as.numeric(trait), 
                   fill=beta), height=1) +
     scale_fill_gradientn( colours = colorRampPalette(colStrength)(100), 
-                          guide = guide_legend(title = "Effect size", 
-                                               title.vjust=10)) +
-    #geom_rect(data=cluster_rows_rect, aes(xmin=xmin, xmax=xmax, 
-    #                                      ymin=ymin + 0.5, 
-    #                                      ymax=ymax + 0.5),  color= 'grey', 
-    #                                      size=linesize, fill = NA) +
+                          name = "Effect size") +
     geom_rect(data=cluster_cols_rect_multiple, aes(xmin=xmin + 0.5, 
                                                    xmax=xmax + 0.5, 
                                           ymin=ymin, 
@@ -486,27 +557,45 @@ beta_snp_hm <-  ggplot(pbeta_map_sig_order.m) +
           axis.line = element_blank(),
           axis.ticks=element_blank(),
           axis.text=element_blank(),
-          legend.text=element_text(size=10, angle = 0, vjust = 0),
-          legend.title=element_text(size=12,hjust = 1),
+          legend.text=element_text(size=legendsize, angle = 0, vjust = 0),
+          legend.title=element_text(size=legendsize, hjust = 1),
+         # legend.key.size = unit(0.5,"line"),
           plot.margin = unit(c(0, 0, 0, 0), "cm"))
-legendAbs <- get_legend(abs_beta_snp)
-
+legendAbs <- get_legend(beta_snp_hm )
 
 # combined effect size plot
 effect_sizes <- plot_grid(NULL, dendrogram_snp, NULL,
-                          NULL , chr_snp + theme(legend.position ='none'), NULL, 
+                          NULL , chr_snp + theme(legend.position ='none'), 
+                            labelTraitsDendro, 
                           legendAbs, beta_snp_hm + theme(legend.position =
                                                              'none'), 
                           dendrogram_traits,
+                          NULL , labelClusters,  NULL,
                           NULL , legendChr,  NULL, 
-                          ncol=3, nrow=4,  rel_heights=c(2,0.5, 7, 2), 
-                          rel_widths=c(1, 4,2), 
+                          ncol=3, nrow=5,  rel_heights=c(2,0.5, 7, 0.5, 2), 
+                          rel_widths=c(0.5, 4,2), 
                           align='vh')
 
 
 ## combine all plots
-png(paste(directory, "/GWAS/manhattan_effect.sizes", sep=""), height=1000, 
-    width=800 )
-plot_grid(pman, effect_sizes, nrow=2,  rel_heights=c(3,5), labels=c("A", "B"))
+png(paste(directory, "/GWAS/manhattan_effectsizes.png", sep=""), height=12, 
+    width=10, res=450, unit="in" )
+plot_grid(pman, effect_sizes, nrow=2,  rel_heights=c(3,5), labels=c("", ""))
 dev.off()
 
+pman_sep <- manhattan(p_ldfiltered, genomewideline=-log10(fdr_single), 
+                      size.y.labels=12, size.x.labels=12, 
+                      mtvsst=TRUE, color=colManhattan, a=0.8,
+                      colorGenomewide =  "gray50", chromboundaries = TRUE) + 
+    theme(legend.position = "bottom",
+          legend.text = element_text(size=12),
+          axis.title =element_text(size=12)) +
+    labs(colour="GWAS set-up")
+
+ggsave(plot=pman_sep, height=4, width=10,
+       file=paste(directory,"/GWAS/manhattanplot.png", sep=""))
+
+png(paste(directory, "/GWAS/effectsizes.png", sep=""), height=10, 
+    width=10, res=450, unit="in" )
+effect_sizes
+dev.off()

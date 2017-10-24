@@ -20,7 +20,6 @@ library("ggplot2")
 library("wesanderson")
 library("plyr")
 library("dplyr")
-
 library("reshape2") # melt, acast
 
 # remove Null list entries 
@@ -97,6 +96,40 @@ formatPValues <- function(cal) {
 	return(cal)
 }
 
+summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
+                      conf.interval=.95, .drop=TRUE) {
+    
+    # New version of length which can handle NA's: if na.rm==T, don't count them
+    length2 <- function (x, na.rm=FALSE) {
+        if (na.rm) sum(!is.na(x))
+        else       length(x)
+    }
+    
+    # This does the summary. For each group's data frame, return a vector with
+    # N, mean, and sd
+    datac <- ddply(data, groupvars, .drop=.drop,
+                   .fun = function(xx, col) {
+                       c(N    = length2(xx[[col]], na.rm=na.rm),
+                         mean = mean   (xx[[col]], na.rm=na.rm),
+                         sd   = sd     (xx[[col]], na.rm=na.rm)
+                       )
+                   },
+                   measurevar
+    )
+    
+    # Rename the "mean" column    
+    datac <- rename(datac, c("mean" = measurevar))
+    
+    datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
+    
+    # Confidence interval multiplier for standard error
+    # Calculate t-statistic for confidence interval: 
+    # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
+    ciMult <- qt(conf.interval/2 + .5, datac$N-1)
+    datac$ci <- datac$se * ciMult
+    
+    return(datac)
+}
 ############
 ### data ### 
 ############
@@ -107,8 +140,8 @@ genVariance <- c(0.2, 0.5, 0.8)
 model <- "noiseBgOnlygeneticBgOnly"
 kinship <- c("unrelatedEU_popstructure", "unrelatedEU_nopopstructure", 
              "relatedEU_nopopstructure")
-dirroot <- "~/GWAS/data/LiMMBo/CalibrationOld/samples1000_NrSNP20_Cg"
-resultdir <- "~/GWAS/data/LiMMBo/CalibrationOld"
+dirroot <- "~/data/LiMMBo/Calibration/samples1000_NrSNP20_Cg"
+resultdir <- "~/data/LiMMBo/CalibrationOld"
 
 alpha <- c(5e-5, 5e-6, 5e-7, 5e-8)
 
@@ -125,6 +158,7 @@ striptext <- 8
 ################
 ### analysis ### 
 ################
+<<<<<<< HEAD
 
 # Calibration of LMM (with standard REML) for all three kinship structures and 
 # moderate number of traits (10,20,30)
@@ -134,10 +168,10 @@ calibrationREML <- lapply(kinship, function(K) {
             
             directoryClosedForm=paste(dirroot, h2, "_model", model, "/", K, 
                                 "/nrtraits", P, "/closedForm",  sep="")
-            RML <- readData("lmm_mt", directoryClosedForm, K, 
+            REML <- readData("lmm_mt", directoryClosedForm, K, 
 											"_closedForm")
 			if (length(RML) != 0) {
-                tmp <- data.frame(RML=RML)
+                tmp <- data.frame(REML=REML)
 			} else {
 				tmp <- NULL
 			}
@@ -267,7 +301,6 @@ p + geom_segment(aes(x = 0, y = 0, xend = limits[2],
                                      hjust=1, vjust=0, face="plain"),
           legend.key = element_rect(colour = NA)) 
 dev.off()
-
 
 ### Combine pvalues from LM and LMM via LiMMBo and depict in qq-plots
 ### Table S4 in publication, Figure 4.5 in thesis
