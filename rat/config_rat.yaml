@@ -1,0 +1,9 @@
+method: "phenix"
+seed: "234"
+dir: "~/data/LiMMBo/rat"
+params:
+  tr: "gaussian"
+  min: "3"
+  sp: "5"
+  seed: "234"
+  cpu: "4"

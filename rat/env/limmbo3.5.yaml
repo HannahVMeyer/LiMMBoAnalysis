@@ -1,0 +1,149 @@
+name: limmbo3
+channels:
+- conda-forge
+- defaults
+dependencies:
+- asciitree=0.3.3=py35_1
+- bokeh=0.12.16=py35_0
+- brent-search=1.0.32=py35_0
+- cachetools=2.0.1=py_0
+- cffi=1.11.5=py35_0
+- click=6.7=py_1
+- cloudpickle=0.5.3=py_0
+- cycler=0.10.0=py35_0
+- cytoolz=0.9.0.1=py35_0
+- dask=0.17.5=py_0
+- dask-core=0.17.5=py_0
+- dbus=1.11.0=0
+- distributed=1.21.8=py35_0
+- expat=2.2.5=0
+- fontconfig=2.13.0=0
+- freetype=2.8.1=0
+- h5py=2.8.0=py35h470a237_0
+- hcephes=0.2.3=1
+- hdf5=1.10.1=2
+- heapdict=1.0.0=py35_0
+- icu=58.2=0
+- jinja2=2.10=py35_0
+- joblib=0.11=py35_0
+- jpeg=9b=2
+- kiwisolver=1.0.1=py35_1
+- libiconv=1.15=0
+- libpng=1.6.34=0
+- libuuid=1.0.3=1
+- libxcb=1.13=0
+- libxml2=2.9.8=0
+- liknorm=1.3.11=0
+- liknorm-py=1.0.12=py35_0
+- limix-core=1.0.2=py35_1
+- limix-legacy=0.8.12=np114py35_3
+- llvmlite=0.23.0=py35_1
+- locket=0.2.0=py35_1
+- markupsafe=1.0=py35_0
+- matplotlib=2.2.2=py35_1
+- msgpack-python=0.5.6=py35h2d50403_2
+- ncephes=1.0.40=py35_0
+- ndarray-listener=1.1.1=py35_0
+- numba=0.38.0=py35_0
+- optimix=1.2.23=py35_1
+- packaging=17.1=py_0
+- pandas=0.23.0=py35_1
+- partd=0.3.8=py35_0
+- pcre=8.41=1
+- psutil=5.4.5=py35_0
+- pycparser=2.18=py35_0
+- pyparsing=2.2.0=py35_0
+- pyqt=5.6.0=py35_5
+- python-dateutil=2.7.3=py_0
+- pytz=2018.4=py_0
+- pyyaml=3.12=py35_1
+- scipy-sugar=1.0.6=py35_0
+- sip=4.18=py35_1
+- six=1.11.0=py35_1
+- sortedcontainers=1.5.10=py35_0
+- tblib=1.3.2=py35_0
+- toolz=0.9.0=py_0
+- tornado=5.0.2=py35_0
+- tqdm=4.23.3=py_0
+- xorg-libxau=1.0.8=3
+- xorg-libxdmcp=1.1.2=3
+- yaml=0.1.7=0
+- zict=0.1.3=py_0
+- ca-certificates=2018.03.07=0
+- certifi=2018.4.16=py35_0
+- glib=2.53.6=h5d9569c_2
+- gst-plugins-base=1.12.4=h33fb286_0
+- gstreamer=1.12.4=hb53b477_0
+- intel-openmp=2018.0.0=8
+- libedit=3.1.20170329=h6b74fdf_2
+- libffi=3.2.1=hd88cf55_4
+- libgcc=7.2.0=h69d50b8_2
+- libgcc-ng=7.2.0=hdf63c60_3
+- libgfortran=3.0.0=1
+- libgfortran-ng=7.2.0=hdf63c60_3
+- libopenblas=0.2.20=h9ac9557_4
+- libstdcxx-ng=7.2.0=hdf63c60_3
+- mkl=2018.0.2=1
+- ncurses=6.1=hf484d3e_0
+- numpy=1.14.3=py35h28100ab_1
+- numpy-base=1.14.3=py35h0ea5e3f_1
+- openssl=1.0.2o=h20670df_0
+- pip=10.0.1=py35_0
+- python=3.5.5=hc3d631a_4
+- qt=5.6.2=h974d657_12
+- readline=7.0=ha6073c6_4
+- scikit-learn=0.19.1=py35hbf1f462_0
+- scipy=1.1.0=py35hfc37229_0
+- setuptools=39.1.0=py35_0
+- sqlite=3.23.1=he433501_0
+- tk=8.6.7=hc745277_3
+- wheel=0.31.1=py35_0
+- xz=5.2.4=h14c3975_4
+- zlib=1.2.11=ha838bed_2
+- pip:
+  - alabaster==0.7.10
+  - apipkg==1.4
+  - appdirs==1.4.3
+  - atomicwrites==1.1.5
+  - attrs==18.1.0
+  - babel==2.5.3
+  - bottleneck==1.2.1
+  - chardet==3.0.4
+  - configargparse==0.13.0
+  - datrie==0.7.1
+  - dill==0.2.7.1
+  - docutils==0.14
+  - execnet==1.5.0
+  - glimix-core==1.2.26
+  - idna==2.6
+  - imagesize==1.0.0
+  - jsonschema==2.6.0
+  - limix==1.0.17
+  - limmbo (/homes/hannah/python_modules/limmbo3)==0.1.4
+  - more-itertools==4.1.0
+  - msgpack==0.5.6
+  - multiprocess==0.70.5
+  - numpy-sugar==1.2.4
+  - pandas-plink==1.2.25
+  - pathos==0.2.1
+  - pep8==1.7.1
+  - pluggy==0.6.0
+  - pox==0.2.3
+  - ppft==1.6.4.7.1
+  - py==1.5.3
+  - pygments==2.2.0
+  - pytest==3.6.0
+  - pytest-cache==1.0
+  - pytest-pep8==1.0.6
+  - pytest-runner==4.2
+  - ratelimiter==1.2.0.post0
+  - requests==2.18.4
+  - snakemake==5.1.3
+  - snowballstemmer==1.2.1
+  - sphinx==1.7.4
+  - sphinx-rtd-theme==0.3.1
+  - sphinxcontrib-websupport==1.0.1
+  - urllib3==1.22
+  - wrapt==1.10.11
+prefix: /homes/hannah/software/anaconda2/envs/limmbo3
+
