@@ -15,7 +15,7 @@ library(wesanderson)
 ### data ###
 ############
 
-directory <- "~/LiMMBo/yeast/genotypes"
+directory <- "~/data/LiMMBo/yeast/inputdata"
 
 geno <- read.table(paste(directory, "/BYxRM_GenoData.txt", sep=""), header=TRUE)
 load(paste(directory, "/cross.Rdata", sep=""))
@@ -23,7 +23,8 @@ genoinfo <- cross$geno
 
 pheno_filtered <- fread(paste(directory, "/BYxRM_pheno_format.txt", sep=""), 
                         sep="\t", 
-                        header=TRUE)
+                        header=TRUE,
+                        data.table=FALSE)
 
 ################
 ### Analysis ###
@@ -32,7 +33,7 @@ pheno_filtered <- fread(paste(directory, "/BYxRM_pheno_format.txt", sep=""),
 ### 1. genotypes ###
 # a) Filter genotypes for samples that passed phenotype filter
 geno_filtered <- geno[,c(TRUE, 
-                         (colnames(geno) %in% rownames(pheno_filtered))[-1])]
+                         (colnames(geno) %in% pheno_filtered[,1])[-1])]
 
 # b) make plink formated files
 ## i) map file: chr, SNP ID, Centimorgan, bp position

@@ -34,7 +34,7 @@ library("cowplot")
 library('ggdendro')
 library('dendextend')
 library("wesanderson")
-source("~/GWAS/analysis/general/pvclustHM.R")
+source("~/projects/utils/pvclustHM.R")
 source("~/LiMMBo/yeast/GWAS/manhattanplot.R")
 
 filterLD <- function(fac, snp, ld, sigSNP, p_original, multitrait=FALSE) {
@@ -85,10 +85,92 @@ chrArab2chrRom <- function(x, direction="arab2rom") {
         }
 }
 
+snp2genes <- function(snps, genes) {
+    snps <- data.frame(chrArab=snps$CHR, start=snps$BP, end=snps$BP+1, 
+                       SNP=snps$SNP, ID=snps$ID)
+    snps$chr <- sapply(snps$chrArab, chrArab2chrRom)
+    grSnps = with(snps, GRanges(chr, IRanges(start=start, end=end,  
+                                             names=ID), SNPID=ID))
+    snpsGenes <- subsetByOverlaps(genes, grSnps)
+    overlaps <- findOverlaps(genes,grSnps)
+    rsid <- CharacterList(split(names(grSnps)[subjectHits(overlaps)], 
+                                queryHits(overlaps)))
+    mcols(snpsGenes) <- DataFrame(mcols(snpsGenes), rsid)
+    snpsGenes.df <- data.frame(snpsGenes, stringsAsFactors=FALSE)
+    snpsGenes.df$rsid <- sapply(snpsGenes.df$rsid, paste, collapse=",")
+    snpsGenes.df$seqnames <- as.character(snpsGenes.df$seqnames)
+    snpsGenes.df$strand <- as.character(snpsGenes.df$strand)
+    return(snpsGenes.df)
+}
+
+mergeSNPs <- function(pbeta) {
+    duplicateSNPs <- pbeta[which(pbeta$SNP %in% 
+                                     pbeta$SNP[duplicated(pbeta$SNP)]),]
+    tmp <- lapply(unique(duplicateSNPs$SNP), function(s) {
+        geneIDs <- paste(as.character(duplicateSNPs$geneID[
+            duplicateSNPs$SNP == s]), collapse=",")
+        geneNames <- paste(
+            as.character(duplicateSNPs$geneName[duplicateSNPs$SNP == s]), 
+            collapse=",")
+        data.frame(SNP=s, seqnames=duplicateSNPs[duplicateSNPs$SNP == s, ][1,2],
+                   geneID=geneIDs, geneName=geneNames,
+                   duplicateSNPs[duplicateSNPs$SNP == s,][1, 5:ncol(
+                       duplicateSNPs)])
+    })
+    tmp <- do.call(rbind, tmp)
+}
+
+clusterEffectsizes <- function(effects, type, direction, nboot, iseed=10, 
+                               plot=FALSE, method.dist="correlation",
+                               effects_pv=NULL) {
+    if (is.null(effects_pv)) {
+        effects_pv <- pvclust(effects, iseed=iseed, nboot=nboot,
+                              method.dist=method.dist)
+        saveRDS(effects_pv, paste(directory, "/GWAS/pbeta_", type, 
+                                  "_map_", direction, "_pv_nboot", nboot, "_",
+                                  method.dist, ".rds", 
+                                  sep=""))
+    }
+    if (plot) {
+        if (direction == "snps") {
+            pvclustPlot(effects_pv, print.bp=FALSE, print.edge=TRUE, 
+                        labels=FALSE,
+                        col.pv=wes_palette(4, name="Moonrise2", 
+                                           type='continuous')[2])
+        } else {
+            pvclustPlot(effects_pv, print.bp=FALSE, print.edge=TRUE, 
+                    col.pv=wes_palette(4, name="Moonrise2", 
+                                       type='continuous')[2])
+        }
+        pvclustRect(effects_pv, type = "geq",  max.only=FALSE)
+    }
+    pickClusters <- function(effects_pv, max.only){
+        ec <- pvclustPick(effects_pv, max.only=max.only)$clusters
+        ec <- lapply(seq_along(ec),
+            function(x) {
+                ec[[x]] <- cbind(ec[[x]], paste("cluster", x))
+            }
+            )
+        ec <- data.frame(do.call(rbind, ec), stringsAsFactors=FALSE)
+        colnames(ec) <- c("ID", "cluster")
+        uniqueClusters <- unique(ec$cluster )
+        return(list(ec=ec, unique=uniqueClusters))
+    }
+    effects_cluster_all = pickClusters(effects_pv, max.only=FALSE)
+    effects_cluster = pickClusters(effects_pv, max.only=TRUE)
+    return(list(effects_pv=effects_pv, 
+                effects_cluster_all = effects_cluster_all$ec,
+                effects_cluster = effects_cluster$ec,
+                uniqueClusters_all = effects_cluster_all$unique,
+                uniqueClusters = effects_cluster$unique))
+}
+
+
+
 ############
 ### data ###
 ############
-directory='~/data/LiMMBo/feasabilityBootstrap/yeast'
+directory='~/data/LiMMBo/yeast'
 
 # fdr thresholds for significcance in multi-variate uni-variate LMM via
 # permutation obtained from GWAS_yeast.sh calling gwas.py 
@@ -109,7 +191,7 @@ pany$CHR <- as.numeric(gsub("chr(\\d{1,2}):(\\d*)", "\\1", pany$ID))
 pany$BP <- as.numeric(gsub("chr(\\d{1,2}):(\\d*)", "\\2", pany$ID))
 pany$TYPE <- 'multitrait'
 
-# p values of single-variate LMM 
+# minimum p values of single-variate LMM 
 psingle <- fread(paste(directory, "/GWAS/pvalues_lmm_single_min_adjust.csv", 
                        sep=""), sep=",", data.table=FALSE, header=TRUE)
 colnames(psingle) <- c("ID", "P")
@@ -118,11 +200,125 @@ psingle$CHR <- as.numeric(gsub("chr(\\d{1,2}):(\\d*)", "\\1", psingle$ID))
 psingle$BP <- as.numeric(gsub("chr(\\d{1,2}):(\\d*)", "\\2", psingle$ID))
 psingle$TYPE <- 'singletrait'
 
+# all p values of single-variate LMM 
+padjust <- fread(paste(directory, "/GWAS/lmm_st_padjust_genome.csv", sep=""), 
+sep=",",data.table=FALSE, header=TRUE)
+
 # effect sizes
+bsingle <- fread(paste(directory, "/GWAS/betas_lmm_single.csv", sep=""), sep=",", 
+              data.table=FALSE)
+colnames(bsingle)[1] <- "SNP"
+bsingle$ID <- ld$SNP 
+
 bany <- fread(paste(directory, "/GWAS/betas_lmm_any.csv", sep=""), sep=",", 
 data.table=FALSE)
 colnames(bany)[1] <- "SNP"
 bany$ID <- ld$SNP
+
+badjust <-  fread(paste(directory, "/GWAS/lmm_st_betavalue_genome.csv", sep=""), 
+                  sep=",",data.table=FALSE, header=TRUE)
+colnames(badjust)[-c(1:3)] <- colnames(bany)[2:42]
+colnames(padjust)[-c(1:3)] <- colnames(bany)[2:42]
+
+# significant SNPs
+# single trait analyses: at least one significant SNP
+padjust_sigAll_index <- t(apply(padjust, 1, function(x) {
+                        which(as.numeric(x[-c(1:3)]) < fdr_single) }))
+names(padjust_sigAll_index) <- padjust$SNP
+nonZeros <- sapply(padjust_sigAll_index, length) != 0
+padjust_sig_index <- padjust_sigAll_index[which(nonZeros)]
+
+nrSig <- sapply(padjust_sig_index, length)
+
+pdf(paste(directory, "/GWAS/sig_trait_assoc_SNP.pdf", sep=""))
+hist(nrSig, xlim=c(1,max(nrSig)), 
+     xlab="Number of significant trait associations per SNP",
+     main="")
+dev.off()
+
+
+padjust_sig <- padjust[which(nonZeros),]
+badjust_sig <- badjust[which(nonZeros),]
+
+# single trait analyses: more than one significant SNP
+more <- sapply(padjust_sig_index, length) > 1
+padjust_manySig_index <- padjust_sig_index[which(more)]
+
+# single trait analyses: exactly one significant SNP
+exactlyOne <- sapply(padjust_sig_index, length) == 1
+padjust_oneSig_index <- padjust_sig_index[which(exactlyOne)]
+
+# single trait analyses: minimum significant SNP
+psingle_sig <- psingle[psingle$P < fdr_single, ]
+bsingle_sig <- bsingle[psingle$P < fdr_single, ]
+
+# multi-trait analyses: singnificant SNPs
+pany_sig <- pany[pany$P < fdr_multi, ]
+bany_sig <- bany[bany$P < fdr_multi, ]
+
+## Intersecting significant SNPs
+common_sig <- intersect(names(padjust_sig_index), pany_sig$ID)
+one_sig <- intersect(names(padjust_oneSig_index), pany_sig$ID)
+many_sig <- intersect(names(padjust_manySig_index), pany_sig$ID)
+
+padjust_common_index <- padjust_sig_index[names(padjust_sig_index) %in% common_sig]
+badjust_common <- badjust[badjust$SNP %in% common_sig,]
+bany <- bany[bany$SNP %in% common_sig, ]
+
+padjust_oneSig_index <- padjust_sig_index[names(padjust_sig_index) %in% one_sig]
+badjust_oneSig <- badjust[badjust$SNP %in% one_sig,]
+bany_oneSig <- bany[bany$SNP %in% one_sig, ]
+
+padjust_manySig_index <- padjust_sig_index[names(padjust_sig_index) %in% many_sig]
+badjust_manySig <- badjust[badjust$SNP %in% many_sig,]
+bany_manySig <- bany[bany$SNP %in% many_sig, ]
+
+bany_manySig_single <- unlist(sapply(seq_along(padjust_manySig_index), 
+                                     function(x) {
+                                         bany_manySig[x, (padjust_manySig_index[[x]] + 1)]
+}))
+badjust_manySig_single <- unlist(sapply(seq_along(padjust_manySig_index), function(x) {
+    badjust_manySig[x, (padjust_manySig_index[[x]]+3)]
+}))
+
+df <- data.frame(multi_trait=bany_manySig_single, 
+                 single_trait=badjust_manySig_single)
+
+p <- ggplot(df, aes(x=single_trait, y=multi_trait))
+p + geom_point() +
+    geom_abline(intercept=0, slope=1) +
+    ylab(expression(beta[multi-trait])) +
+    xlab(expression(beta[single-trait])) +
+    xlim(c(-6,6))
+
+padjust_min_index <- t(apply(padjust, 1, function(x) {
+    which.min(x[-c(1:3)]) + 3}))
+
+padjust_min <- cbind(padjust[,1:3], pmin =apply(padjust, 1, function(x) {
+    return(min(as.numeric(x[-c(1:3)])))}))
+
+psingle_sig <- psingle[psingle$P < fdr_single, ]
+pany_sig <- pany[pany$P < fdr_multi, ]
+common_sig <- intersect(psingle_sig$SNP, pany_sig$SNP)
+
+bany_sig <- bany[bany$ID %in% common_sig, ]
+bany_sig.m <- melt(bany_sig[,-1], id.vars = "ID", variable.name = "Trait", 
+                   value.name = "Multi_trait")
+#bany_sig.m$type <- "Multi-trait"
+bsingle_sig <- bsingle[bsingle$ID %in% common_sig, ]
+badjust_sig <- badjust[badjust$ID %in% common_sig, ]
+bsingle_sig.m <- melt(bsingle_sig[,-1], id.vars = "ID", variable.name = "Trait", 
+                   value.name = "Single_trait")
+#bsingle_sig.m$type <- "Single-trait"
+b_sig <- cbind(bsingle_sig.m, Multi_trait=bany_sig.m$Multi_trait)
+
+p <- ggplot(b_sig, aes(x=Single_trait, y=Multi_trait))
+p + geom_point() +
+    ylab(expression(beta[multi-trait])) +
+    xlab(expression(beta[single-trait])) +
+    theme(axis.title = element_text(size=18))
+ggsave(paste(directory, "/GWAS/effect_sizes_common_sig.pdf", sep=""))
+    
 
 # yeast chromosome sizes generated via 
 # fetchChromSizes sacCer3 sacCer3.chrom.sizes > sacCer3.chrom.sizes.txt
@@ -136,6 +332,7 @@ colnames(chrom_size)[1:2] <- c("CHR", "length")
 ################
 ### analysis ###
 ################
+psingle <- padjust
 
 ####################
 ### SNP analysis ###
@@ -150,6 +347,14 @@ psingle_ldfiltered <- do.call(rbind,
                               lapply(seq_along(1:nrow(psingle)), function(snp) 
                                   filterLD(snp=snp, ld=ld, p_original=psingle)))
 psingle_ldfiltered <- psingle_ldfiltered[!duplicated(psingle_ldfiltered$SNP),]
+
+padjust_sig_ldfiltered <- do.call(rbind, 
+                              lapply(seq_along(1:nrow(padjust_sig)), 
+                                     function(snp) 
+                                        filterLD(snp=snp, ld=ld, 
+                                                 p_original=padjust_sig)))
+padjust_sig_ldfiltered <- padjust_sig_ldfiltered[!duplicated(
+    padjust_sig_ldfiltered$SNP),]
 
 # Filter SNPs based on pruned dataset
 kb <- c(3, 5, 8, 10, 12, 15, 20, 30, 50, 100, 0)
@@ -220,126 +425,123 @@ grYeast = with(yeastgenes, GRanges(chr,
                                    geneName=geneName))
 
 # map snps to genes
-snpsGWAS <- data.frame(chrArab= pany$CHR, start=pany$BP, end= pany$BP+1, 
-                            SNP=pany$SNP, ID=pany$ID)
-snpsGWAS$chr <- sapply(snpsGWAS$chrArab, chrArab2chrRom)
-grSnpsGWAS = with(snpsGWAS, GRanges(chr, IRanges(start=start, end=end,  
-                                                           names=ID), SNPID=ID))
-
-snpsGWASGenes <- subsetByOverlaps(grYeast, grSnpsGWAS)
-overlaps <- findOverlaps(grYeast,grSnpsGWAS)
-rsid <- CharacterList(split(names(grSnpsGWAS)[subjectHits(overlaps)], 
-                            queryHits(overlaps)))
-mcols(snpsGWASGenes) <- DataFrame(mcols(snpsGWASGenes), rsid)
-snpsGWASGenes.df <- data.frame(snpsGWASGenes, stringsAsFactors=FALSE)
-snpsGWASGenes.df$rsid <- sapply(snpsGWASGenes.df$rsid, paste, collapse=",")
-snpsGWASGenes.df$seqnames <- as.character(snpsGWASGenes.df$seqnames)
-snpsGWASGenes.df$strand <- as.character(snpsGWASGenes.df$strand)
-
-write.table(snpsGWASGenes.df, file=
-                paste(directory, "/GWAS/ReferenceGWASGenes.txt",sep=""),
+snpsGWASGenes <- snp2genes(snps=pany, genes=grYeast)
+write.table(snpsGWASGenes, file= paste(directory, 
+                                       "/GWAS/ReferenceGWASGenes.txt",sep=""),
             col.names=FALSE, row.names=FALSE, quote=FALSE, sep="\t")
 
 # convert from genes with multiple SNPs, to single SNPs mapping to genes
-ID2Genes <- apply(as.matrix(snpsGWASGenes.df), 1, function(x) {
+ID2Genes <- apply(as.matrix(snpsGWASGenes), 1, function(x) {
     ids <- unlist(strsplit( x[9], ","))
     df <- expandRows(as.data.frame(t(x)), length(ids), count.is.col = FALSE)
     df$SNP <- ids
     return(df)
 })
 ID2Genes <- do.call(rbind, ID2Genes)
-beta_map <- merge(ID2Genes, bany, by.x=10, by.y=1)
-pbeta_map <- merge(beta_map[,c(1:2, 7, 9, 11:52)], pany[,1:2], by=1)
+
+beta_any_map <- merge(ID2Genes, bany, by.x=10, by.y=1)
+pbeta_any_map <- merge(beta_map[,c(1:2, 7, 9, 11:52)], pany[,1:2], by=1)
+
+beta_single_map <- merge(ID2Genes, bsingle, by.x=10, by.y=1)
+pbeta_single_map <- merge(beta_single_map[,c(1:2, 7, 9, 11:52)], pany[,1:2], by=1)
 
 # some SNPs are mapped to more than one gene; get these SNPs + paste gene column
-duplicateSNPs <- pbeta_map[which(pbeta_map$SNP %in% 
-                                     pbeta_map$SNP[duplicated(pbeta_map$SNP)]),]
-mergedSNPs <- lapply(unique(duplicateSNPs$SNP), function(s) {
-    geneIDs <- paste(as.character(duplicateSNPs$geneID[duplicateSNPs$SNP == s]), 
-                     collapse=",")
-    geneNames <- paste(
-        as.character(duplicateSNPs$geneName[duplicateSNPs$SNP == s]), 
-        collapse=",")
-    data.frame(SNP=s, seqnames=duplicateSNPs[duplicateSNPs$SNP == s, ][1,2],
-               geneID=geneIDs, geneName=geneNames,
-               duplicateSNPs[duplicateSNPs$SNP == s,][1, 5:ncol(duplicateSNPs)])
-})
-mergedSNPs <- do.call(rbind, mergedSNPs)
-pbeta_map <- pbeta_map[ -which(pbeta_map$SNP %in% 
-                       pbeta_map$SNP[duplicated(pbeta_map$SNP)]),]
-pbeta_map <- rbind(pbeta_map, mergedSNPs)
+pbeta_any_map <- pbeta_any_map[ -which(pbeta_any_map$SNP %in% 
+                       pbeta_any_map$SNP[duplicated(pbeta_any_map$SNP)]),]
+pbeta_any_map <- rbind(pbeta_any_map, mergeSNPs(pbeta_any_map))
+
+pbeta_single_map <- pbeta_single_map[ -which(pbeta_single_map$SNP %in% 
+                    pbeta_single_map$SNP[duplicated(pbeta_single_map$SNP)]),]
+pbeta_single_map <- rbind(pbeta_single_map, mergeSNPs(pbeta_single_map))
+
+# Remove all non-significant SNPs
+pbeta_any_map_ld <- pbeta_any_map[pbeta_any_map$SNP %in% pany_ldfiltered$ID,]
+pbeta_any_map_sig <- pbeta_any_map_ld[pbeta_any_map_ld$P < fdr_multi,]
+rownames(pbeta_any_map_sig) <- pbeta_any_map_sig$SNP
+saveRDS(pbeta_any_map_sig, paste(directory, "/GWAS/pbeta_any_map_ld_sig.rds", sep=""))
+
+pbeta_single_map_ld <- pbeta_single_map[pbeta_single_map$SNP %in% psingle_ldfiltered$ID,]
+pbeta_single_map_sig <- pbeta_single_map_ld[pbeta_single_map_ld$P < fdr_single,]
+rownames(pbeta_single_map_sig) <- pbeta_single_map_sig$SNP
+saveRDS(pbeta_single_map_sig, paste(directory, "/GWAS/pbeta_single_map_ld_sig.rds", sep=""))
 
 ############################
 ### effect size analysis ###
 ############################
 
-# Remove all non-significant SNPs
-pbeta_map_ld <- pbeta_map[pbeta_map$SNP %in% pany_ldfiltered$ID,]
-pbeta_map_sig <- pbeta_map_ld[pbeta_map_ld$P < fdr_single,]
-rownames(pbeta_map_sig) <- pbeta_map_sig$SNP
-saveRDS(pbeta_map_sig, paste(directory, "/GWAS/pbeta_map_ld_sig.rds", sep=""))
+
 
 # cluster and determine stability of clusters with pvclust
-method.dist <- "correlation"
+
+pbeta_any_map_traits_pv <- readRDS( paste(directory, "/GWAS/20170626pbeta_map_traits_pv_50k_fdr5e-5correlation.rds", sep=""))
+
+
+effects_pv_snps_any <- readRDS("~/data/LiMMBo/yeast/GWAS/20170526pbeta_map_snps_pv_fdr5e-5correlation.rds")
+effects_pv_snps_single <- readRDS("~/data/LiMMBo/yeast/GWAS/pbeta_single_map_snps_pv_correlation.rds")
+
+effects_pv_traits_any <- readRDS("~/data/LiMMBo/yeast/GWAS/pbeta_any_map_traits_pv_50k_fdr5e-5correlation.rds")
+effects_pv_traits_single <- readRDS("~/data/LiMMBo/yeast/GWAS/pbeta_single_map_traits_pv_50k_fdr5e-5correlation.rds")
+
+any_clusterSNP <- clusterEffectsizes(effects_pv=effects_pv_snps_any, 
+                                     type="any", direction="snps", nboot=10000,
+                                     plot=TRUE)
+single_clusterSNP <- clusterEffectsizes(effects_pv=effects_pv_snps_single, 
+                                        type="single", direction="snps", 
+                                        nboot=10000, plot=TRUE)
+
+any_clusterTraits <- clusterEffectsizes(effects_pv=effects_pv_traits_any, 
+                                        type="any", direction="traits", 
+                                        nboot=50000, plot=TRUE)
+single_clusterTraits <- clusterEffectsizes(effects_pv = effects_pv_traits_single, 
+                                           type="single", direction="traits", 
+                                           nboot=50000, plot=TRUE)
 
 ## for traits
-pbeta_map_traits_pv <- pvclust(pbeta_map_sig[,5:45], nboot=50000, iseed=10,
-                          method.dist=method.dist)
-saveRDS(pbeta_map_traits_pv, paste(directory, "/GWAS/",  
-                              strftime(Sys.time(), "%Y%m%d"), 
-                              "pbeta_map_traits_pv_50k_fdr5e-5", 
-                              method.dist, ".rds", sep=""))
-# pbeta_map_traits_pv <- readRDS( paste(directory, "/GWAS/20170626pbeta_map_traits_pv_50k_fdr5e-5correlation.rds", sep=""))
-pvclustPlot(pbeta_map_traits_pv, print.bp=FALSE, print.edge=TRUE,
-            col.pv=wes_palette(4, name="Moonrise2", type='continuous')[2])
-pvclustRect(pbeta_map_traits_pv, max.only=TRUE, highestEdge = 20)
-pbeta_map_traits_clusters <- pvclustPick(pbeta_map_traits_pv, 
-                                         max.only=TRUE
-                                         , highestEdge = 20)$clusters
-pbeta_map_traits_clusters <- lapply(seq_along(pbeta_map_traits_clusters),
-                                    function(x) {
-                                        pbeta_map_traits_clusters[[x]] <- 
-                                        cbind(pbeta_map_traits_clusters[[x]], 
-                                              paste("cluster", x))
-                                    })
-pbeta_map_traits_clusters <- data.frame(do.call(rbind, 
-                                                pbeta_map_traits_clusters),
-                                        stringsAsFactors=FALSE)
-colnames(pbeta_map_traits_clusters) <- c("ID", "cluster")
+any_clusterTraits <- clusterEffectsizes(effects=pbeta_any_map_sig[,5:45], 
+                                        type="any", direction="traits", 
+                                        nboot=50000)
+single_clusterTraits <- clusterEffectsizes(effects=pbeta_single_map_sig[,5:45], 
+                                           type="single", direction="traits", 
+                                           nboot=50000)
+
+
 
 ## for SNPs
-pbeta_map_snps_pv <- pvclust(t(pbeta_map_sig[,5:44]), nboot=10000, iseed=10, 
-                               method.dist=method.dist)
-saveRDS(pbeta_map_snps_pv, paste(directory, "/GWAS/",  
-                                   strftime(Sys.time(), "%Y%m%d"), 
-                                   "pbeta_map_snps_pv_", 
-                                   method.dist, ".rds", sep=""))
-#pbeta_map_snps_pv <- readRDS("~/GWAS/data/LiMMBo/feasabilityBootstrap/yeast/GWAS/20170526pbeta_map_snps_pv_fdr5e-5correlation.rds")
+#pbeta_any_map_snps_pv <- readRDS("~/data/LiMMBo/feasabilityBootstrap/yeast/GWAS/20170526pbeta_map_snps_pv_fdr5e-5correlation.rds")
+any_clusterSNP <- clusterEffectsizes(effects=t(pbeta_any_map_sig[,5:44]), 
+                                     type="any", direction="snps", nboot=10000)
+single_clusterSNP <- clusterEffectsizes(effects=t(pbeta_single_map_sig[,5:44]), 
+                                    type="single", direction="snps", 
+                                    nboot=10000)
 
-pvclustPlot(pbeta_map_snps_pv, print.bp=FALSE, print.edge=TRUE, labels=FALSE, 
-            col.pv=wes_palette(4, name="Moonrise2", type='continuous')[2])
-pvclustRect(pbeta_map_snps_pv, highestEdge = 180)
-pbeta_map_snps_clusters <- pvclustPick(pbeta_map_snps_pv, 
-                                       highestEdge = 180)$clusters
-pbeta_map_snps_clusters <- lapply(seq_along(pbeta_map_snps_clusters),
-                                    function(x) {
-                                        pbeta_map_snps_clusters[[x]] <- 
-                                            cbind(pbeta_map_snps_clusters[[x]], 
-                                                  paste("cluster", x))
-                                    })
-pbeta_map_snps_clusters <- data.frame(do.call(rbind, 
-                                                pbeta_map_snps_clusters),
-                                        stringsAsFactors=FALSE)
-colnames(pbeta_map_snps_clusters) <- c("ID", "cluster")
+## for traits
+any_clusterTraits <- clusterEffectsizes(effects=pbeta_any_map_sig[,5:45], 
+                                        type="any", direction="traits", 
+                                        nboot=50000)
+single_clusterTraits <- clusterEffectsizes(effects=pbeta_single_map_sig[,5:45], 
+                                        type="single", direction="traits", 
+                                        nboot=50000)
+
+#single
+#highest_edge <- 154
+
+#any
+#highest_edge <- 180
+
 
 ## order according to cluster order
-snp <- pbeta_map_sig$SNP
-snp <- factor(snp[pbeta_map_snps_pv$hclust$order], 
-              levels=unique(snp[pbeta_map_snps_pv$hclust$order])) 
+pbeta_map_sig <- pbeta_any_map_sig
+rownames(pbeta_map_sig) <- pbeta_map_sig$SNP
+clusterTraits <- any_clusterTraits
+clusterSNP <- any_clusterSNP
 
-pbeta_map_sig_order <- pbeta_map_sig[,5:45][pbeta_map_snps_pv$hclust$order,
-                                    pbeta_map_traits_pv$hclust$order]
-pbeta_map_sig_order.m <- melt(data.frame(SNP=snp, pbeta_map_sig_order), 
+snp <- pbeta_map_sig$SNP
+snp <- factor(snp[clusterSNP$effects_pv$hclust$order], 
+              levels=unique(snp[clusterSNP$effects_pv$hclust$order])) 
+
+pbeta_map_sig_order <- pbeta_map_sig[,1:45][clusterSNP$effects_pv$hclust$order,
+                                c(1:4, (clusterTraits$effects_pv$hclust$order)+4) ]
+pbeta_map_sig_order.m <- melt(data.frame(SNP=snp, pbeta_map_sig_order[, 5:45]), 
                               value.name = "beta",
                               variable.name="trait")
 
@@ -352,17 +554,25 @@ chr <- factor(chr, levels=1:16)
 
 
 ##  rectangles for significant SNP clusters across different chromosomes
-cluster_cols <-  data.frame(ID=rownames(pbeta_map_sig_order), 
-                            stringsAsFactors = FALSE)
-cluster_cols$chr <- gsub("chr(\\d{1,2}).*", "\\1", cluster_cols$ID)
-cluster_cols$cluster <- sapply(cluster_cols$ID, function(x) {
-    if(any(pbeta_map_snps_clusters$ID == x)) {
-        pbeta_map_snps_clusters$cluster[pbeta_map_snps_clusters$ID == x]
+cluster_cols <- lapply(1:nrow(pbeta_map_sig_order), function(x) {
+    id <- rownames(pbeta_map_sig_order)[x]
+    geneID <- pbeta_map_sig_order$geneID[x]
+    geneName <- pbeta_map_sig_order$geneName[x]
+    if(any(clusterSNP$effects_cluster$ID == id)) {
+        tmp <- clusterSNP$effects_cluster$cluster[clusterSNP$effects_cluster$ID == id]
+        tmp <- data.frame(ID=rep(id, length(tmp)), 
+                          geneID = rep(geneID, length(tmp)), 
+                          geneName = rep(geneName, length(tmp)), cluster=tmp)  
     } else {
-        "no_cluster"
+        tmp <- data.frame(ID=id, geneID = geneID, geneName=geneName, 
+                          cluster="no_cluster")
     }})
-cluster_cols$geneID <- pbeta_map_sig$geneID[pbeta_map_snps_pv$hclust$order]
-cluster_cols$geneName <- pbeta_map_sig$geneName[pbeta_map_snps_pv$hclust$order]
+cluster_cols <- do.call(rbind, cluster_cols)
+cluster_cols$chr <- gsub("chr(\\d{1,2}).*", "\\1", cluster_cols$ID)
+#cluster_cols <- cluster_cols[order(cluster_cols$cluster),]
+
+#cluster_cols$geneID <- pbeta_map_sig$geneID[clusterSNP$effects_pv$hclust$order]
+#cluster_cols$geneName <- pbeta_map_sig$geneName[clusterSNP$effects_pv$hclust$order]
 
 cluster2chromosomes <- sapply(unique(cluster_cols$cluster) , function(x) {
     tmp <- cluster_cols[which(cluster_cols$cluster == x),]
@@ -372,17 +582,20 @@ cluster2chromosomes <- sapply(unique(cluster_cols$cluster) , function(x) {
         return(paste(length(unique(tmp$chr)), "chromosomes"))
     }
 })
+names(cluster2chromosomes) <- unique(cluster_cols$cluster)
+
 multipleChr <- cluster2chromosomes[! grepl("single", cluster2chromosomes)]
-multipleChr <- multipleChr[!grepl("no", names(multipleChr))]
+if (any(grepl("no", multipleChr))) {
+    multipleChr <- multipleChr[!grepl("no", multipleChr)]
+}
 
 cluster_cols$clustertype <- sapply(cluster_cols$cluster, function(x) {
     cluster2chromosomes[which(names(cluster2chromosomes) == x)]
 })
 
-write.table(cluster_cols, paste(directory, "/GWAS/", strftime(Sys.time(), 
-                                                              "%Y%m%d"), 
-                  "SNP_clusters.csv", sep=""), sep=",", quote=FALSE, 
-            col.names=TRUE)
+#write.table(cluster_cols, paste(directory, "/GWAS/", 
+#                  "SNP_clusters.csv", sep=""), sep=",", quote=FALSE, 
+#            col.names=TRUE)
 
 cluster_cols_start <- which(!duplicated(cluster_cols$cluster))
 cluster_cols_start <- cluster_cols_start[-which(
@@ -403,19 +616,20 @@ cluster_cols_rect_multiple$colour <- factor(cluster_cols_rect_multiple$colour,
                                             cluster_cols_rect_multiple$colour))
 
 ##  rectangles for significant trait clusters 
-cluster_rows <-  data.frame(ID=colnames(pbeta_map_sig_order))
-cluster_rows$cluster <- sapply(cluster_rows$ID, function(x) {
-    if(any(pbeta_map_traits_clusters$ID == x)) {
-        pbeta_map_traits_clusters$cluster[pbeta_map_traits_clusters$ID == x]
+cluster_rows <- lapply(colnames(pbeta_map_sig_order), function(x) {
+    if(any(clusterTraits$effects_cluster$ID == x)) {
+        tmp <- clusterTraits$effects_cluster$cluster[clusterTraits$effects_cluster$ID == x]
+        tmp <- data.frame(ID=rep(x, length(tmp)), cluster=tmp)
     } else {
-        "no_cluster"
+        tmp <- data.frame(ID=x, cluster="no_cluster")
     }})
+cluster_rows <- do.call(rbind, cluster_rows)
 
 cluster_rows_start <- which(!duplicated(cluster_rows$cluster))
 cluster_rows_start <- cluster_rows_start[-which(
     grepl("no",unique(cluster_rows$cluster)))]
 cluster_rows_end <- sapply(cluster_rows_start, function(x) 
-    max(which(cluster_rows$cluster==cluster_rows$cluster[x])))
+    max(which(cluster_rows$cluster == cluster_rows$cluster[x])))
 cluster_rows_rect <- data.frame(ymin=cluster_rows_start, 
                                 ymax=cluster_rows_end, 
                                 xmin=rep(0, length(cluster_rows_start)), 
@@ -442,7 +656,7 @@ legendsize <- 10
 pman <- manhattan(p_ldfiltered, genomewideline=-log10(fdr_single), 
                   size.y.labels=textsize, size.x.labels=textsize, xscale=TRUE, 
                   mtvsst=TRUE, cols=colManhattan, a=0.8, 
-                  colorGenomewideline=colManhattan[2]) + 
+                  colGenomewideline=colManhattan[2]) + 
     theme(panel.border = element_blank(),
           legend.text=element_text(size=textsize),
           legend.title=element_text(size=textsize),
@@ -471,8 +685,8 @@ legendChr$layout$t[1] <- 1
 
 
 # dendrogram of clustered SNPs
-relabeled_dendro_snps <- pbeta_map_snps_pv$hclust %>% 
-as.dendrogram %>% pvclust_show_signif(pbeta_map_snps_pv, signif_type='au')
+relabeled_dendro_snps <- clusterSNP$effects_pv$hclust %>% 
+as.dendrogram %>% pvclust_show_signif(clusterSNP$effects_pv, signif_type='au')
 snp_dendro <- as.ggdend(relabeled_dendro_snps )
 
 dendrogram_snp <- ggplot() + geom_blank() +
@@ -491,8 +705,8 @@ dendrogram_snp <- ggplot() + geom_blank() +
           plot.margin = unit(c(0, 0, 0, 0), "cm"))
 
 # dendrogram of trait clustering
-relabeled_dendro_traits <- pbeta_map_traits_pv$hclust %>% 
-    as.dendrogram %>% pvclust_show_signif(pbeta_map_traits_pv, signif_type='au')
+relabeled_dendro_traits <- clusterTraits$effects_pv$hclust %>% 
+    as.dendrogram %>% pvclust_show_signif(clusterTraits$effects_pv, signif_type='au')
 traits_dendro <- as.ggdend(relabeled_dendro_traits )
 
 dendrogram_traits <- ggplot() + geom_blank() +
@@ -522,7 +736,7 @@ labelTraitsDendro <- ggplot() +
 # label cluster 28 and 31
 specificCluster <- cluster_cols_rect_multiple[
                     cluster_cols_rect_multiple$colour %in% 
-                        c("cluster 28", "cluster 31"),]
+                        c("cluster 15", "cluster 12"),]
 specificCluster$xmean <- (specificCluster$xmax + specificCluster$xmin)/2
 specificCluster$label <- c("a", "b")
 labelClusters <- ggplot(data=specificCluster,aes(x=xmean, y=ymin, 
@@ -549,8 +763,7 @@ beta_snp_hm <-  ggplot(pbeta_map_sig_order.m) +
                                           ymax=ymax), color= 'grey', 
               size=linesize, fill = NA) +
     scale_x_continuous(expand=c(0,0)) +
-    scale_y_continuous(expand=c(0,0),
-                       limits=c(0,42),
+    scale_y_continuous(expand=c(0,0), limits=c(0,42),
                        breaks = seq_along(traits_dendro$labels$label)) +
     theme(legend.position ='left',
           axis.title=element_blank(),
@@ -573,6 +786,7 @@ effect_sizes <- plot_grid(NULL, dendrogram_snp, NULL,
                           NULL , labelClusters,  NULL,
                           NULL , legendChr,  NULL, 
                           ncol=3, nrow=5,  rel_heights=c(2,0.5, 7, 0.5, 2), 
+                          #ncol=3, nrow=4,  rel_heights=c(2,0.5, 7, 2),
                           rel_widths=c(0.5, 4,2), 
                           align='vh')
 

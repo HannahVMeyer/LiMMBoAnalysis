@@ -168,10 +168,17 @@ p + geom_boxplot(aes(group=as.factor(NrTraits))) +
           legend.key = element_rect(colour = NA)) 
 
 
-  
+universe <- function(v,k,t){
+    choose(k,t) * v^t
+}
 
+blocks <- function(v,k) { v^k}
+P=c(50, 100, 200, 300, 400, 500,600, 700, 800, 900, 1000)
+U=sapply(P, universe, k=10, t=2)
+S=sapply(P, blocks, k=10)
 
-
+plot(P, U, pch=20)
+plot(P, S, pch=20)
 
 
 
