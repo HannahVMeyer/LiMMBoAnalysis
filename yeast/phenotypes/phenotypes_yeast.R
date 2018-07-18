@@ -1,3 +1,21 @@
+###########################################################
+###                                                     ###
+### Understand, impute and format  yeast quantitative   ###
+### growth traits (Bloom et al (2013))      	        ###
+###                                                     ###
+###     * missing traits, missingness patterns,         ###
+###         trait correlations					        ###
+###     * testing for missingness mechanism             ###
+###         ** Missing completely at random				###
+### 			 (Little's test for MCAR)          		###
+###    		** Missing at random by prediction patterns	###
+###     * imputation via MICE				            ###
+###                                                     ###
+### Generates Figure  S8-S10 (publication)              ###
+###           Figure 5.1-5.4 (thesis)             		###
+###                                                     ###
+###########################################################
+
 ###############################
 ### Libraries and Functions ###
 ###############################
@@ -10,7 +28,7 @@ library(dplyr)
 library(ggplot2)
 library(wesanderson)
 library(BaylorEdPsych) #LittleMCAR
-source("~/LiMMBo/yeast/phenotypes/corrplotHM.R")
+source("~/projects/utils/corrplotHM.R")
 
 assignPrior <- function(cor_matrix, threshold) {
         corr_info <- cor_matrix
@@ -61,8 +79,7 @@ Teff <- function(test) {
 ### data ###
 ############
 
-#directory <- "~/LiMMBo/yeast/phenotypes"
-directory <- "~/data/LiMMBo/feasabilityBootstrap/yeast/inputdata"
+directory <- "~/data/LiMMBo/yeast/inputdata"
 
 col=wes_palette(5, name="Darjeeling", type='continuous')[c(4,5)]
 col_corr <- colorRampPalette(col=c(col[1], "white",col[2]))(100)
@@ -77,7 +94,7 @@ genoinfo <- cross$geno
 ################
 
 # 1. pattern of missing data
-## a) distribution
+## a) distribution: Figure S8.A (publication), Figure 5.1A (thesis)
 pdf(paste(directory, "/missing_data_pattern.pdf", sep=""), height=5, width=7)
 aggr_plot <- aggr(pheno, col=col, prop=TRUE, numbers=FALSE, sortVars=TRUE, 
                   labels=names(pheno), cex.axis=.7, gap=3, 
@@ -100,7 +117,7 @@ Samples2Keep <- per_sample_missingness$missing <= 0.20
 MCARtest <- LittleMCAR(pheno[Samples2Keep,])
 pMCAR <- pchisq(MCARtest$chi.square, MCARtest$df, lower.tail=FALSE)
 
-### MAR
+### MAR: Figure 5.2 (thesis)
 pheno_missing <- as.data.frame(abs(is.na(pheno)))
 corrMiss_P <- t(sapply(1:ncol(pheno), function(y) {
     sapply(1:ncol(pheno), function(x) {
@@ -133,7 +150,8 @@ dev.off()
 noNA_samples <- !apply(pheno, 1, function(x) any(is.na(x)))
 pheno_noNA <- pheno[noNA_samples,]
 
-## a) correlation between phenotypes 
+## a) correlation between phenotypes: Figure S9 (publication),
+## Figure 5.3 (thesis)
 pheno_noNA_cor <- rcorr(as.matrix(pheno_noNA), type="pearson")$r
 pheno_noNA_p <- rcorr(as.matrix(pheno_noNA), type="pearson")$P
 pheno_noNA_n <- diag(rcorr(as.matrix(pheno_noNA), type="pearson")$n)
@@ -173,7 +191,7 @@ plot(-log(frequency_missingness$missing),
      ylab=expression(-log[10](missingness[sample])), 
      xlab= expression(-log[10](missingness[all])))
 
-## d) plot dataset
+## d) plot dataset: Figure S8.B (publication), Figure 5.1B (thesis)
 pdf(paste(directory, "/missing_data_pattern_simulated.pdf", sep=""), 
     height=5, width=7)
 aggr_plot <- aggr(pheno_addNA, col=col, prop=TRUE,numbers=FALSE, sortVars=TRUE, 
@@ -235,7 +253,8 @@ cor_setups_melt <- melt(cor_setups, variable.name="setup")
 cor_setups_melt$type <- gsub("corr(.*)", "\\1", cor_setups_melt$setup)
 cor_setups_melt$x <- 1
 
-# 5. Impute full data set
+# 5. Impute full data set: Figure S10 (publication),
+## Figure 5.4(thesis)
 ## a) get best predictors for each trait 
 predictors <- colnames(cor_setups)[2:5][apply(cor_setups[,2:5], 1, which.max)]
 
