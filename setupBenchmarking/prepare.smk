@@ -45,7 +45,7 @@ rule all:
             method=['limmbo.csv', 'gemma.txt', 'sbat.txt']),
         kinship=expand("{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_{method}",
             dir=config["simulatedir"],
-            N=config["N"], A=config["paramGeno"]["nAnc"],
+            N=['1000', '10000'], A=config["paramGeno"]["nAnc"],
             B=config["paramGeno"]["nBlocks"],
             type=config["paramGeno"]["type"],
             seed=config["paramGeno"]["seedGeno"],
