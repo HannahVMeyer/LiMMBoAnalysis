@@ -1,0 +1,18 @@
+genodir: "/homes/hannah/data/LiMMBo/simulateData/genotypes/relatedEU_nopopstructure"
+N: "10000"
+paramGeno:
+    seedGeno: "256"
+    nAnc: 2
+    nBlocks: 1000
+    type: "only4Eu_noPop"
+    maf: "0.02"
+
+phenodir: "/homes/hannah/data/LiMMBo/simulateData/phenotypes"
+simulatedir: "/homes/hannah/data/LiMMBo/simulateData"
+dir: "/homes/hannah/data/LiMMBo"
+S: "20"
+params:
+    sp: "10"
+    min: "3"
+    tr: "gaussian"
+    cpu: "4"
