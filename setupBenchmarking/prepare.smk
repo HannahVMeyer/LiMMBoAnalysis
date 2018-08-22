@@ -43,12 +43,43 @@ rule all:
             S="0",
             model="modelnoiseFixedAndBggeneticBgOnly",
             method=['limmbo.csv', 'gemma.txt', 'sbat.txt']),
-        kinship=expand("{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_{method}",
-            dir=config["simulatedir"],
-            N=['1000', '10000'], A=config["paramGeno"]["nAnc"],
-            B=config["paramGeno"]["nBlocks"],
-            type=config["paramGeno"]["type"],
-            seed=config["paramGeno"]["seedGeno"],
+        expand("{phenodir}/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/kinship_{method}",
+            phenodir=config["phenodir"],
+            N=config["N"],
+            seed=range(1,101),
+            a=["{:.1f}".format(x) for x in np.append(0.05, np.arange(start=0.1,stop=1, step=0.1))],
+            P=['50', '100', '1000'],
+            h2=['0.3'],
+            S=config["S"],
+            model="modelnoiseFixedAndBggeneticFixedAndBg",
+            method=['eigenvec_limmbo.csv', 'eigenvalue_limmbo.csv', 'eigenvec.txt', 'eigenvalue.txt']),
+        expand("{phenodir}/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/kinship_{method}",
+            phenodir=config["phenodir"],
+            N=config["N"],
+            seed=range(101,201),
+            a = "1",
+            P=['10', '20', '30', '40', '50', '70', '100', '150', '200', '500', '1000'],
+            h2=['0.3'],
+            S=config["S"],
+            model="modelnoiseFixedAndBggeneticFixedAndBg",
+            method=['eigenvec_limmbo.csv', 'eigenvalue_limmbo.csv', 'eigenvec.txt', 'eigenvalue.txt']),
+        expand("{phenodir}/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/kinship_{method}",
+            phenodir=config["phenodir"],
+            N='1000',
+            seed=range(201,301),
+            P=['10', '30', '100', '300'],
+            h2=['0.3'],
+            S="0",
+            model="modelnoiseFixedAndBggeneticBgOnly",
+            method=['eigenvec_limmbo.csv', 'eigenvalue_limmbo.csv', 'eigenvec.txt', 'eigenvalue.txt']),
+        expand("{phenodir}/Scalability/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/kinship_{method}",
+            phenodir=config["phenodir"],
+            N=['1000', '2000', '5000', '10000'],
+            seed=range(201,301),
+            P='100',
+            h2=['0.3'],
+            S="0",
+            model="modelnoiseFixedAndBggeneticBgOnly",
             method=['eigenvec_limmbo.csv', 'eigenvalue_limmbo.csv', 'eigenvec.txt', 'eigenvalue.txt'])
 
 rule preparePhenotypes:
@@ -65,11 +96,11 @@ rule preparePhenotypes:
 
 rule prepareKinship:
     input:
-        kinship="{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_norm.csv"
+        kinship="{dir}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/kinship.csv"
     output:
-        "{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_eigenvalue_limmbo.csv",
-        "{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_eigenvec_limmbo.csv",
-        "{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_eigenvalue.txt",
-        "{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_eigenvec.txt"
+        "{dir}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/kinship_eigenvalue_limmbo.csv",
+        "{dir}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/kinship_eigenvec_limmbo.csv",
+        "{dir}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/kinship_eigenvalue.txt",
+        "{dir}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/kinship_eigenvec.txt"
     shell:
         "Rscript 'prepare/prepareKinship.R' --kinship={input.kinship}"

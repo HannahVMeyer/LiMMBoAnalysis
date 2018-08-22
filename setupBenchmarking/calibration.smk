@@ -16,12 +16,10 @@ rule all:
 
 rule limmbo:
     input:
-        kinship=expand("{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_norm.csv",
-            dir=config["simulatedir"],
-            N=config["N"], A=config["paramGeno"]["nAnc"],
-            B=config["paramGeno"]["nBlocks"],
-            type=config["paramGeno"]["type"],
-            seed=config["paramGeno"]["seedGeno"]),
+        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec_limmbo.csv",
+            dir=config["simulatedir"]),
+        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue_limmbo.csv",
+            dir=config["simulatedir"]),
         pheno=expand("{dir}/phenotypes/TraitsAffected{{a}}/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_limmbo.csv",
             dir=config["simulatedir"])
     params:
@@ -40,18 +38,17 @@ rule limmbo:
         "(runVarianceEstimation \
             -o {wildcards.dir}/vd/seedLiMMBo{wildcards.seed}/{wildcards.method} \
             -sp {params.sp} -seed {wildcards.seed} \
-            -p {input.pheno} -k {input.kinship} \
+            -p {input.pheno} \
+            -S_U_k {input.eigenvec} {input.eigenvalue} \
             --minCooccurrence {params.min} \
             -cpus {params.cpus} --limmbo -v -t) 2> {log}"
 
 rule limix:
     input:
-        kinship=expand("{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_norm.csv",
-            dir=config["simulatedir"],
-            N=config["N"], A=config["paramGeno"]["nAnc"],
-            B=config["paramGeno"]["nBlocks"],
-            type=config["paramGeno"]["type"],
-            seed=config["paramGeno"]["seedGeno"]),
+        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec_limmbo.csv",
+            dir=config["simulatedir"]),
+        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue_limmbo.csv",
+            dir=config["simulatedir"]),
         pheno=expand("{dir}/phenotypes/TraitsAffected{{a}}/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_limmbo.csv",
             dir=config["simulatedir"])
     params:
@@ -67,48 +64,36 @@ rule limix:
         "(runVarianceEstimation \
             -o {wildcards.dir}/vd/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed} \
             -seed {wildcards.seed} \
-            -p {input.pheno} -k {input.kinship} \
+            -S_U_k {input.eigenvec} {input.eigenvalue} \
+            -p {input.pheno} \
             --reml -v -t) 2> {log}"
 rule sbat:
     input:
-        eigenvec=expand("{dir}/genotypes/relatedEU_nopopstructure/N{{N}}/{{N}}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_eigenvec.txt",
-            dir=config["simulatedir"],
-            A=config["paramGeno"]["nAnc"],
-            B=config["paramGeno"]["nBlocks"],
-            type=config["paramGeno"]["type"],
-            seed=config["paramGeno"]["seedGeno"]),
-        eigenvalue=expand("{dir}/genotypes/relatedEU_nopopstructure/N{N}/{N}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_eigenvalue.txt",
-            dir=config["simulatedir"],
-            N=config["N"], A=config["paramGeno"]["nAnc"],
-            B=config["paramGeno"]["nBlocks"],
-            type=config["paramGeno"]["type"],
-            seed=config["paramGeno"]["seedGeno"]),
+        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec.txt",
+            dir=config["simulatedir"]),
+        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue.txt",
+            dir=config["simulatedir"]),
         pheno=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_sbat.txt",
             dir=config["simulatedir"])
     output:
-        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/sbat.C.mpmm.txt"
-    log:
-        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/log/sbat.log"
+        C="{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/sbat.C.mpmm.txt",
+        sbatlog="{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/sbat.log",
+        time="{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/VD_time_sbat.csv"
     shell:
-        "(sbat_fs --covariances-only \
-              -p {input.pheno} \
-              -ev {input.eigenvec} {input.eigenvalue} \
-              -o {wildcards.dir}/vd/Calibration/Traits{wildcards.P}_samples{wildcards.N}_NrSNP{wildcards.S}_Cg{wildcards.h2}_{wildcards.model}/seed{wildcards.seed}/sbat) 2> {log}"
+        """
+        (sbat_fs --covariances-only \
+            -p <(cut -d \" \" -f 1,2 {input.pheno}) \
+            -ev {input.eigenvec} {input.eigenvalue} \
+            -o {wildcards.dir}/vd/Calibration/Traits{wildcards.P}_samples{wildcards.N}_NrSNP{wildcards.S}_Cg{wildcards.h2}_{wildcards.model}/seed{wildcards.seed}/sbat) 1>{output.sbatlog}
+        grep 'Running time:' {output.sbatlog} | cut -d ":" -f 2 | cut -d " " -f 2 > {output.time}
+        """
 
 rule gemma:
     input:
-        eigenvec=expand("{dir}/genotypes/relatedEU_nopopstructure/N{{N}}/{{N}}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_eigenvec.txt",
-            dir=config["simulatedir"],
-            A=config["paramGeno"]["nAnc"],
-            B=config["paramGeno"]["nBlocks"],
-            type=config["paramGeno"]["type"],
-            seed=config["paramGeno"]["seedGeno"]),
-        eigenval=expand("{dir}/genotypes/relatedEU_nopopstructure/N{{N}}/{{N}}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_kinship_eigenvalue.txt",
-            dir=config["simulatedir"],
-            A=config["paramGeno"]["nAnc"],
-            B=config["paramGeno"]["nBlocks"],
-            type=config["paramGeno"]["type"],
-            seed=config["paramGeno"]["seedGeno"]),
+        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec.txt",
+            dir=config["simulatedir"]),
+        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue.txt",
+            dir=config["simulatedir"]),
         pheno=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_gemma.txt",
             dir=config["simulatedir"]),
         geno=expand("{dir}/genotypes/relatedEU_nopopstructure/N{{N}}/{{N}}G_nAnc{A}_nBlocks{B}_seed{seed}_{type}_chr1_maf{maf}_gemma.csv",
