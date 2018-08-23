@@ -5,69 +5,72 @@ configfile: "config/config_calibration.yaml"
 
 rule all:
     input:
-        expand("{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/sbat.C.mpmm.txt",
+        expand("{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/{type}",
             dir=config["dir"],
             N=['1000'],
-            seed=range(201,301),
+            seed='201',
             P=['10', '30', '100', '300'],
             h2=['0.3'],
             S="0",
-            model="modelnoiseFixedAndBggeneticBgOnly")
+            model="modelnoiseFixedAndBggeneticBgOnly",
+            type=['Cg_REML.csv', 'sbat.C.mpmm.txt'])
 
-rule limmbo:
+rule calibration_limmbo:
     input:
         eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec_limmbo.csv",
             dir=config["simulatedir"]),
         eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue_limmbo.csv",
             dir=config["simulatedir"]),
-        pheno=expand("{dir}/phenotypes/TraitsAffected{{a}}/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_limmbo.csv",
+        pheno=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_limmbo.csv",
             dir=config["simulatedir"])
     params:
-        sp=config["params"]["sp"],
+        sp=lambda wildcards: '5' if wildcards.P == 10 else '10',
         min=config["params"]["min"],
         tr=config["params"]["tr"],
         cpus=config["params"]["cpu"]
     output:
-        "{dir}/vd/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cg_fit.csv",
-        "{dir}/vd/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cn_fit.csv"
+        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cg_fit.csv",
+        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cn_fit.csv"
     log:
-        "{dir}/vd/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/log/sim.log"
-    #conda:
-    #    "env/limmbo3.5.yaml"
+        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/log/sim.log"
+    conda:
+        "envs/limmbo1.0.0-dev.yaml"
     shell:
         "(runVarianceEstimation \
-            -o {wildcards.dir}/vd/seedLiMMBo{wildcards.seed}/{wildcards.method} \
+            -o {wildcards.dir}/vd/Calibration/Traits{wildcards.P}_samples{wildcards.N}_NrSNP{wildcards.S}_Cg{wildcards.h2}_{wildcards.model}/seed{wildcards.seed} \
             -sp {params.sp} -seed {wildcards.seed} \
             -p {input.pheno} \
-            -S_U_k {input.eigenvec} {input.eigenvalue} \
+            -eval_k {input.eigenvalue} \
+            -evec_k {input.eigenvec} \
             --minCooccurrence {params.min} \
             -cpus {params.cpus} --limmbo -v -t) 2> {log}"
 
-rule limix:
+rule calibration_limix:
     input:
         eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec_limmbo.csv",
             dir=config["simulatedir"]),
         eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue_limmbo.csv",
             dir=config["simulatedir"]),
-        pheno=expand("{dir}/phenotypes/TraitsAffected{{a}}/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_limmbo.csv",
+        pheno=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_limmbo.csv",
             dir=config["simulatedir"])
     params:
         tr=config["params"]["tr"],
     output:
-        "{dir}/vd/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cg_REML_seed{seed}.csv",
-        "{dir}/vd/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cn_REML_seed{seed}.csv",
+        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cg_REML.csv",
+        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cn_REML.csv",
     log:
-        "{dir}/vd/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/log/sim.log"
-    #conda:
-    #    "env/limmbo3.5.yaml"
+        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/log/sim.log"
+    conda:
+         "envs/limmbo1.0.0-dev.yaml"
     shell:
         "(runVarianceEstimation \
-            -o {wildcards.dir}/vd/TraitsAffected{a}/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed} \
+            -o {wildcards.dir}/vd/Calibration/Traits{wildcards.P}_samples{wildcards.N}_NrSNP{wildcards.S}_Cg{wildcards.h2}_{wildcards.model}/seed{wildcards.seed} \
             -seed {wildcards.seed} \
-            -S_U_k {input.eigenvec} {input.eigenvalue} \
+            -eval_k {input.eigenvalue} \
+            -evec_k {input.eigenvec} \
             -p {input.pheno} \
             --reml -v -t) 2> {log}"
-rule sbat:
+rule calibration_sbat:
     input:
         eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec.txt",
             dir=config["simulatedir"]),
@@ -77,18 +80,19 @@ rule sbat:
             dir=config["simulatedir"])
     output:
         C="{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/sbat.C.mpmm.txt",
+        D="{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/sbat.D.mpmm.txt",
         sbatlog="{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/sbat.log",
         time="{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/VD_time_sbat.csv"
     shell:
         """
         (sbat_fs --covariances-only \
-            -p <(cut -d \" \" -f 1,2 {input.pheno}) \
+            -p {input.pheno} \
             -ev {input.eigenvec} {input.eigenvalue} \
             -o {wildcards.dir}/vd/Calibration/Traits{wildcards.P}_samples{wildcards.N}_NrSNP{wildcards.S}_Cg{wildcards.h2}_{wildcards.model}/seed{wildcards.seed}/sbat) 1>{output.sbatlog}
         grep 'Running time:' {output.sbatlog} | cut -d ":" -f 2 | cut -d " " -f 2 > {output.time}
         """
 
-rule gemma:
+rule calibration_gemma:
     input:
         eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec.txt",
             dir=config["simulatedir"]),
