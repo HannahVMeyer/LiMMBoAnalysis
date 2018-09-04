@@ -8,4 +8,5 @@ paramGeno:
     type: "only4Eu_noPop"
     maf: "0.02"
 phenodir: "/homes/hannah/data/LiMMBo/simulateData/phenotypes"
+genodir: "/homes/hannah/data/LiMMBo/simulateData/genotypes/relatedEU_nopopstructure"
 S: "20"
