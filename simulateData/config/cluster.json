@@ -16,13 +16,24 @@
     },
     "simulateTraitsAffected" :
     {
-        "memory" : "10000",
-        "resources" : "\"select[mem>10000] rusage[mem=10000] span[hosts=1]\""
+        "memory" : "8000",
+        "resources" : "\"select[mem>8000] rusage[mem=8000] span[hosts=1]\"",
+        "output" : "log/{rule}_{wildcards.a}_{wildcards.P}_{wildcards.N}.out",
+        "error" : "log/{rule}_{wildcards.a}_{wildcards.P}_{wildcards.N}.err"
     },
     "simulateCalibration" :
     {
-        "memory" : "10000",
-        "resources" : "\"select[mem>10000] rusage[mem=10000] span[hosts=1]\""
+        "memory" : "8000",
+        "resources" : "\"select[mem>8000] rusage[mem=8000] span[hosts=1]\"",
+        "output" : "log/{rule}_{wildcards.P}_{wildcards.N}.out",
+        "error" : "log/{rule}_{wildcards.P}_{wildcards.N}.err"
+    },
+    "simulateScalabilitySamples" :
+    {
+        "memory" : "8000",
+        "resources" : "\"select[mem>8000] rusage[mem=8000] span[hosts=1]\"",
+        "output" : "log/{rule}_{wildcards.P}_{wildcards.N}.out",
+        "error" : "log/{rule}_{wildcards.P}_{wildcards.N}.err"
     },
     "formatGenotypes" :
     {
