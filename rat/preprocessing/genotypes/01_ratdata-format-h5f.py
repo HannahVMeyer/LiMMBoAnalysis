@@ -16,7 +16,7 @@ class ratData:
 
     def filterMAF(self, X, maf, id, mafThr):
         filter = np.logical_and(maf > mafThr, maf < 1 -mafThr)
-        #print '%d variants discarded' % (~filter).sum()
+        print('%d variants discarded' % (~filter).sum())
         X = X[filter,:]
         maf = maf[filter]
         id = id[filter]
@@ -30,7 +30,6 @@ class ratData:
         return K
 
     def process(self, infile, outfile, estimateKin=False):
-        pdb.set_trace()
         f_chrom = h5py.File(infile,'r')
         chrom_group_in = f_chrom['imputed_genotypes']
         samples = chrom_group_in["row_header"]["rat"][:]
@@ -78,7 +77,6 @@ class ratData:
             
 if __name__ == "__main__":
 
-    pdb.set_trace()
     in_file = os.path.join(snakemake.input.hf5file)
     out_file = os.path.join(snakemake.params.dir, snakemake.params.name)
     estimateKin = snakemake.params.estimateKin == "True"
@@ -87,5 +85,5 @@ if __name__ == "__main__":
     data = ratData()
     data.process(outfile=out_file, infile=in_file, estimateKin=estimateKin)
     t2 = time.time()
-    #print '... finished in %.2f seconds'%(t2-t1)
+    print('... finished in %.2f seconds'%(t2-t1))
 

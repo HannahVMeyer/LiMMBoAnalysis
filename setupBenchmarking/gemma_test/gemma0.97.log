@@ -1,0 +1,51 @@
+GEMMA 0.97 (2017/12/27) by Xiang Zhou and team (C) 2012-2017
+Reading Files ... 
+## number of total individuals = 1000
+## number of analyzed individuals = 1000
+## number of covariates = 1
+## number of phenotypes = 4
+## number of total SNPs/var        =      100
+## number of analyzed SNPs         =      100
+REMLE estimate for Vg in the null model: 
+0.8005	
+-0.4944	0.4263	
+-0.3872	0.2538	0.2393	
+-0.1431	0.1209	0.0244	0.1136	
+se(Vg): 
+0.0731	
+0.0549	0.0509	
+0.0508	0.0382	0.0547	
+0.0418	0.0391	0.0385	0.0422	
+REMLE estimate for Ve in the null model: 
+0.0386	
+-0.0521	0.1889	
+0.0456	-0.3216	0.7080	
+-0.0547	0.2945	-0.5945	0.6028	
+se(Ve): 
+0.0380	
+0.0313	0.0331	
+0.0330	0.0312	0.0556	
+0.0300	0.0329	0.0447	0.0459	
+REMLE likelihood = -3229.6756
+MLE estimate for Vg in the null model: 
+0.8007	
+-0.4945	0.4265	
+-0.3872	0.2538	0.2394	
+-0.1432	0.1210	0.0243	0.1137	
+se(Vg): 
+0.0731	
+0.0549	0.0509	
+0.0508	0.0382	0.0547	
+0.0418	0.0391	0.0385	0.0422	
+MLE estimate for Ve in the null model: 
+0.0380	
+-0.0517	0.1883	
+0.0458	-0.3214	0.7070	
+-0.0545	0.2940	-0.5938	0.6020	
+se(Ve): 
+0.0379	
+0.0313	0.0331	
+0.0330	0.0311	0.0555	
+0.0299	0.0329	0.0447	0.0458	
+MLE likelihood = -3230.6052
+                                                   0%================================================== 100%

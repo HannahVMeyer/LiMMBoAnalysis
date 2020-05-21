@@ -1,0 +1,16 @@
+**** DEBUG: entered in src/io.cpp at line 353 in ReadFile_pheno
+**** DEBUG: entered in src/io.cpp at line 608 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs58108140 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs189107123 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs180734498 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs144762171 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs151276478 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs140337953 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs116400033 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs62637813 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs150021059 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Can't figure out position for rs146477069 in src/io.cpp at line 683 in ReadFile_geno
+**** DEBUG: Skipping similar warnings in src/io.cpp at line 685 in ReadFile_geno
+**** DEBUG: entered in src/io.cpp at line 1260 in ReadFile_eigenU
+**** DEBUG: entered in src/io.cpp at line 1309 in ReadFile_eigenD
+**** DEBUG: entering in src/mvlmm.cpp at line 2959 in AnalyzeBimbam

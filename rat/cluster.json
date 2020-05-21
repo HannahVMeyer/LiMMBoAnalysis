@@ -1,20 +1,23 @@
 {
     "__default__" :
     {
-        "memory" : "16000",
-        "n" : 1,
+        "memory" : "25000",
+        "n" : "1",
+        "resources" : "\"select[mem>16000] rusage[mem=16000] span[hosts=1]\"",
         "queue" : "research-rh7",
         "name" : "rat.{rule}.{wildcards}",
-        "output" : "log/{rule}.out",
+        "output" : "log/{rule}.log",
         "error" : "log/{rule}.err"
     },
     "limmbo" :
     {
         "memory" : "50000",
-        "n": 4
+        "resources" : "\"select[mem>50000] rusage[mem=50000] span[hosts=1]\"",
+        "n": "4"
     },
     "genotypes" :
     {
-        "memory" : "50000"
+        "memory" : "50000",
+        "resources" : "\"select[mem>50000] rusage[mem=50000] span[hosts=1]\""
     }
 }

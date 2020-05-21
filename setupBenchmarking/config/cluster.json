@@ -5,7 +5,7 @@
         "n" : "1",
         "resources" : "\"select[mem>16000] rusage[mem=16000] span[hosts=1]\"",
         "queue" : "research-rh7",
-        "name" : "simulate.{rule}",
+        "name" : "{rule}",
         "output" : "log/{rule}.out",
         "error" : "log/{rule}.err"
     },
@@ -13,6 +13,11 @@
     {
         "memory" : "1000",
         "resources" : "\"select[mem>1000] rusage[mem=1000] span[hosts=1]\""
+    },
+    "prepareKinship" :
+    {
+        "memory" : "5000",
+        "resources" : "\"select[mem>5000] rusage[mem=5000] span[hosts=1]\""
     },
     "simulateTraitsAffected" :
     {
@@ -23,5 +28,31 @@
     {
         "memory" : "10000",
         "resources" : "\"select[mem>10000] rusage[mem=10000] span[hosts=1]\""
+    },
+    "scalability_sbat" :
+    {
+        "resources" : "\"select[mem>10000, model=XeonE52670] rusage[mem=10000] span[hosts=1]\"",
+        "n" : "1",
+        "name" : "{rule}_{wildcards.P}_{wildcards.seed}",
+    },
+    "calibration_limmbo" :
+    {
+        "memory" : "40000",
+        "resources" : "\"select[mem>40000] rusage[mem=40000] span[hosts=1]\"",
+        "name" : "{rule}_{wildcards.N}_{wildcards.P}_{wildcards.seed}",
+        "n" : "8"
+    },
+    "calibration_limix" :
+    {
+        "memory" : "10000",
+        "resources" : "\"select[mem>10000] rusage[mem=10000] span[hosts=1]\"",
+        "name" : "{rule}_{wildcards.N}_{wildcards.P}_{wildcards.seed}",
+    },
+    "calibration_sbat" :
+    {
+        "memory" : "10000",
+        "resources" : "\"select[mem>10000] rusage[mem=10000] span[hosts=1]\"",
+        "name" : "{rule}_{wildcards.N}_{wildcards.P}_{wildcards.seed}",
+        "n" : "8"
     }
 }

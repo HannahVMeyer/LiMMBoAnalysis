@@ -7,19 +7,30 @@ rule all:
     input:
         expand("{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/{type}",
             dir=config["dir"],
-            N=['1000'],
-            seed='201',
-            P=['10', '30', '100', '300'],
+            N=['5000'],
+            seed=range(301,401),
+            P=['10', '30'],
             h2=['0.3'],
             S="0",
             model="modelnoiseFixedAndBggeneticBgOnly",
-            type=['Cg_REML.csv', 'sbat.C.mpmm.txt'])
+            type=['Cg_REML.csv']),
+            #type=['Cg_REML.csv', 'Cg_fit.csv', 'sbat.C.mpmm.txt', 'Cg_gemma.csv'])
+        expand("{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/{type}",
+            dir=config["dir"],
+            N=['5000'],
+            seed=range(301,401),
+            P=['10', '30', '100', '300', '1000'],
+            h2=['0.3'],
+            S="0",
+            model="modelnoiseFixedAndBggeneticBgOnly",
+            type=['Cg_fit.csv', 'sbat.C.mpmm.txt'])
+
 
 rule calibration_limmbo:
     input:
-        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec_limmbo.csv",
+        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Kinship_eigenvec_limmbo.csv",
             dir=config["simulatedir"]),
-        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue_limmbo.csv",
+        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Kinship_eigenval_limmbo.csv",
             dir=config["simulatedir"]),
         pheno=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_limmbo.csv",
             dir=config["simulatedir"])
@@ -32,7 +43,7 @@ rule calibration_limmbo:
         "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cg_fit.csv",
         "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cn_fit.csv"
     log:
-        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/log/sim.log"
+        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/log/vd.log"
     conda:
         "envs/limmbo1.0.0-dev.yaml"
     shell:
@@ -47,9 +58,9 @@ rule calibration_limmbo:
 
 rule calibration_limix:
     input:
-        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec_limmbo.csv",
+        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Kinship_eigenvec_limmbo.csv",
             dir=config["simulatedir"]),
-        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue_limmbo.csv",
+        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Kinship_eigenval_limmbo.csv",
             dir=config["simulatedir"]),
         pheno=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_limmbo.csv",
             dir=config["simulatedir"])
@@ -59,7 +70,7 @@ rule calibration_limix:
         "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cg_REML.csv",
         "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/Cn_REML.csv",
     log:
-        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/log/sim.log"
+        "{dir}/vd/Calibration/Traits{P}_samples{N}_NrSNP{S}_Cg{h2}_{model}/seed{seed}/log/vd.log"
     conda:
          "envs/limmbo1.0.0-dev.yaml"
     shell:
@@ -70,11 +81,12 @@ rule calibration_limix:
             -evec_k {input.eigenvec} \
             -p {input.pheno} \
             --reml -v -t) 2> {log}"
+
 rule calibration_sbat:
     input:
-        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec.txt",
+        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Kinship_eigenvec_gemma.txt",
             dir=config["simulatedir"]),
-        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue.txt",
+        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Kinship_eigenval_gemma.txt",
             dir=config["simulatedir"]),
         pheno=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_sbat.txt",
             dir=config["simulatedir"])
@@ -94,9 +106,9 @@ rule calibration_sbat:
 
 rule calibration_gemma:
     input:
-        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvec.txt",
+        eigenvec=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Kinship_eigenvec_gemma.txt",
             dir=config["simulatedir"]),
-        eigenvalue=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/kinship_eigenvalue.txt",
+        eigenval=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Kinship_eigenval_gemma.txt",
             dir=config["simulatedir"]),
         pheno=expand("{dir}/phenotypes/Calibration/Traits{{P}}_samples{{N}}_NrSNP{{S}}_Cg{{h2}}_{{model}}/seed{{seed}}/Ysim_reg_gemma.txt",
             dir=config["simulatedir"]),
@@ -116,7 +128,7 @@ rule calibration_gemma:
         num=lambda wildcards: ' '.join(map(str, range(1, (int(wildcards.P)+1))))
     shell:
         """
-        (gemma -p {input.pheno} \
+        (gemma0.96 -p {input.pheno} \
            -g <(head -n 1 {input.geno}) \
            -d {input.eigenval} \
            -u {input.eigenvec} \

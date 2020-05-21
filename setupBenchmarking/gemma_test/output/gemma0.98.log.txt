@@ -1,0 +1,92 @@
+##
+## GEMMA Version    = 0.98-beta1 (2018-09-06)
+## Build profile    = /gnu/store/8h46wb8hi8n492i2vlbfcz4dm44xwlpc-profile
+## GCC version      = 7.3.0
+## GSL Version      = 2.4
+## Eigen Version    = 3.3.4
+## OpenBlas         = OpenBLAS 0.3.0.dev  - DYNAMIC_ARCH NO_AFFINITY Sandybridge
+##   arch           = Sandybridge
+##   threads        = 32
+##   parallel type  = threaded
+##
+## Command Line Input = /homes/hannah/software/gemma-0.98-beta1 -p Ysim_reg_gemma.txt -g Genotypes_gemma.csv -d Kinship_eigenval_gemma.txt -u Kinship_eigenvec_gemma.txt -lmm 2 -n 1 9 4 8 10 -o ./gemma0.98 
+##
+## Date = Thu Sep  6 18:11:59 2018
+##
+## Summary Statistics:
+## number of total individuals = 1000
+## number of analyzed individuals = 1000
+## number of covariates = 1
+## number of phenotypes = 5
+## number of total SNPs/var = 100
+## number of analyzed SNPs/var = 100
+## REMLE log-likelihood in the null model = -4580.56
+## MLE log-likelihood in the null model = -4582.3
+## REMLE estimate for Vg in the null model: 
+0.802101
+0.143108	0.0550622
+-0.145017	-0.0644645	0.117378
+-0.0830849	-0.0256448	0.0253772	0.637693
+-0.549814	-0.0986753	0.116904	0.0454384	0.411276
+## se(Vg): 
+0.0731299
+0.0346739	0.0284661
+0.0420187	0.0258064	0.0422936
+0.0519672	0.0326026	0.0406794	0.0732875
+0.0513116	0.0248476	0.0295275	0.0375841	0.0387415
+## REMLE estimate for Ve in the null model: 
+0.037639
+0.0275195	0.461031
+-0.0534675	-0.0901687	0.599741
+0.00361357	-0.0392215	0.224977	0.225917
+-0.0148396	-0.00394589	-0.0703495	-0.0437483	0.0428373
+## se(Ve): 
+0.0379126
+0.0252497	0.0331947
+0.0299486	0.028256	0.0456348
+0.0294035	0.026933	0.0335612	0.045469
+0.0265933	0.0185762	0.0215307	0.0216895	0.0207657
+## MLE estimate for Vg in the null model: 
+0.80226	0.143159	-0.145088	-0.0830947	-0.549916
+0.143159	0.055136	-0.0644974	-0.0256312	-0.0987107
+-0.145088	-0.0644974	0.117487	0.0253906	0.116946
+-0.0830947	-0.0256312	0.0253906	0.637906	0.0454405
+-0.549916	-0.0987107	0.116946	0.0454405	0.411353
+## se(Vg): 
+0.0731133
+0.0346633	0.0284525
+0.0420069	0.025795	0.0422753
+0.0519536	0.0325918	0.0406659	0.0732673
+0.0512986	0.0248393	0.0295178	0.0375732	0.0387306
+## MLE estimate for Ve in the null model: 
+0.037032	0.0273713	-0.0532738	0.00366084	-0.0144408
+0.0273713	0.46046	-0.0900042	-0.0391754	-0.00385974
+-0.0532738	-0.0900042	0.598953	0.224713	-0.0703751
+0.00366084	-0.0391754	0.224713	0.225147	-0.043728
+-0.0144408	-0.00385974	-0.0703751	-0.043728	0.042503
+## se(Ve): 
+0.037873
+0.0252202	0.0331536
+0.0299138	0.028221	0.0455785
+0.0293707	0.0269002	0.0335205	0.0454164
+0.0265649	0.0185539	0.0215048	0.0216646	0.0207428
+## estimate for B (d by c) in the null model (columns correspond to the covariates provided in the file): 
+-0.0204611
+-0.00300993
+0.00205945
+0.00486438
+0.011978
+## se(B): 
+0.0216794
+0.0223481
+0.026145
+0.0244404
+0.0163458
+##
+## Computation Time:
+## total computation time = 0.13222 min 
+## computation time break down: 
+##      time on eigen-decomposition = 0 min 
+##      time on calculating UtX = 0.042964 min 
+##      time on optimization = 0.00806943 min 
+##

@@ -1,0 +1,80 @@
+##
+## GEMMA Version    = 0.97 (2017/12/27)
+## GSL Version      = 2.4
+## Eigen Version    = 3.3.4
+## OpenBlas         = OpenBLAS 0.2.19  - NO_LAPACK NO_LAPACKE DYNAMIC_ARCH NO_AFFINITY Sandybridge
+##   arch           = Sandybridge
+##   threads        = 8
+##   parallel type  = threaded
+##
+## Command Line Input = gemma -p Ysim_reg_gemma.txt -g Genotypes_gemma.csv -d Kinship_eigenval_gemma.txt -u Kinship_eigenvec_gemma.txt -lmm 2 -n 1 2 3 4 -o ./gemma0.97 
+##
+## Date = Thu Sep  6 12:20:41 2018
+##
+## Summary Statistics:
+## number of total individuals = 1000
+## number of analyzed individuals = 1000
+## number of covariates = 1
+## number of phenotypes = 4
+## number of total SNPs/var = 100
+## number of analyzed SNPs/var = 100
+## REMLE log-likelihood in the null model = -3229.68
+## MLE log-likelihood in the null model = -3230.61
+## REMLE estimate for Vg in the null model: 
+0.800513
+-0.494357	0.426313
+-0.387193	0.25381	0.23929
+-0.143107	0.120908	0.0243673	0.113583
+## se(Vg): 
+0.0730955
+0.0549122	0.0509157
+0.0507684	0.0381846	0.0547375
+0.0418484	0.039054	0.0384731	0.042192
+## REMLE estimate for Ve in the null model: 
+0.0385728
+-0.0520962	0.188894
+0.0455824	-0.321632	0.707984
+-0.0547047	0.294502	-0.594485	0.602801
+## se(Ve): 
+0.0379604
+0.0313096	0.033137
+0.0330458	0.0311616	0.055571
+0.0299606	0.0329387	0.0447328	0.0458515
+## MLE estimate for Vg in the null model: 
+0.800675	-0.494507	-0.387233	-0.143178
+-0.494507	0.426493	0.253822	0.121005
+-0.387233	0.253822	0.239391	0.0243122
+-0.143178	0.121005	0.0243122	0.11369
+## se(Vg): 
+0.0730694
+0.0549	0.0509129
+0.0507593	0.0381853	0.0547436
+0.041845	0.0390585	0.0384811	0.0421973
+## MLE estimate for Ve in the null model: 
+0.0379634	-0.0516544	0.0457749	-0.0545114
+-0.0516544	0.188325	-0.321441	0.294049
+0.0457749	-0.321441	0.707038	-0.593831
+-0.0545114	0.294049	-0.593831	0.602013
+## se(Ve): 
+0.0379147
+0.0312738	0.0331017
+0.0330081	0.0311293	0.055511
+0.0299264	0.0329041	0.0446852	0.0458022
+## estimate for B (d by c) in the null model (columns correspond to the covariates provided in the file): 
+-0.0199357
+0.0143101
+0.0103617
+0.00337933
+## se(B): 
+0.0216839
+0.020592
+0.0291442
+0.0261673
+##
+## Computation Time:
+## total computation time = 0.204542 min 
+## computation time break down: 
+##      time on eigen-decomposition = 0 min 
+##      time on calculating UtX = 0.148421 min 
+##      time on optimization = 0.00416282 min 
+##

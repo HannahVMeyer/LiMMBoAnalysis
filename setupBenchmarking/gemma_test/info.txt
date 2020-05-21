@@ -1,0 +1,32 @@
+
+*********************************************************
+  Genome-wide Efficient Mixed Model Association (GEMMA)  
+  Version 0.96, 05/17/2017                              
+  Visit http://www.xzlab.org/software.html For Updates   
+  (C) 2017 Xiang Zhou                                   
+  GNU General Public License                             
+  For Help, Type ./gemma -h                              
+*********************************************************
+
+GEMMA 0.97 (2017/12/27) by Xiang Zhou and team (C) 2012-2017
+
+ type ./gemma -h [num] for detailed help
+ options: 
+  1: quick guide
+  2: file I/O related
+  3: SNP QC
+  4: calculate relatedness matrix
+  5: perform eigen decomposition
+  6: perform variance component estimation
+  7: fit a linear model
+  8: fit a linear mixed model
+  9: fit a multivariate linear mixed model
+ 10: fit a Bayesian sparse linear mixed model
+ 11: obtain predicted values
+ 12: calculate snp variance covariance
+ 13: note
+ 14: debug options
+
+The GEMMA software is distributed under the GNU General Public v3
+   -license    show license information
+   see also http://www.xzlab.org/software.html, https://github.com/genetics-statistics

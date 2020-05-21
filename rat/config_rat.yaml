@@ -1,6 +1,6 @@
+directory: "/homes/hannah/data/LiMMBo/rat"
 method: "phenix"
 seed: "234"
-dir: "~/data/LiMMBo/rat"
 params:
   tr: "gaussian"
   min: "3"
